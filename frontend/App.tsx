@@ -13,6 +13,8 @@ import TermsOfService from './components/TermsOfService';
 
 // 🔐 Auth Page (Login + Signup combined)
 import Auth from './pages/Auth';
+import Feed from './pages/Feed';
+import Profile from './pages/Profile';
 
 const Home: React.FC = () => {
   return (
@@ -45,6 +47,8 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/feed" element={<Feed />} />
+      <Route path="/profile" element={<Profile />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
     </Routes>
