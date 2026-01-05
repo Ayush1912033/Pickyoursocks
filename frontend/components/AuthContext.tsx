@@ -17,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Omit<User, 'id'>, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  updateUser: (updates: Partial<User>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -101,8 +102,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setIsLoading(false);
   };
 
+  const updateUser = async (updates: Partial<User>) => {
+    if (!user) return;
+
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    localStorage.setItem('mock_user', JSON.stringify(updatedUser));
+
+    // Update in db list as well
+    const dbUsersStr = localStorage.getItem('mock_db_users');
+    if (dbUsersStr) {
+      const dbUsers = JSON.parse(dbUsersStr);
+      const index = dbUsers.findIndex((u: User) => u.email === user.email);
+      if (index !== -1) {
+        dbUsers[index] = { ...dbUsers[index], ...updates };
+        localStorage.setItem('mock_db_users', JSON.stringify(dbUsers));
+      }
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

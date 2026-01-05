@@ -5,17 +5,68 @@ import Footer from '../components/Footer';
 import { User, MapPin, Trophy, Mail, Calendar, Activity } from 'lucide-react';
 import { Navigate } from 'react-router-dom';
 
+const LOCATIONS: Record<string, Record<string, string[]>> = {
+    "India": {
+        "Maharashtra": ["Mumbai", "Pune", "Nagpur", "Nashik"],
+        "Karnataka": ["Bangalore", "Mysore", "Hubli"],
+        "Delhi": ["New Delhi", "North Delhi", "South Delhi"],
+        "Tamil Nadu": ["Chennai", "Coimbatore", "Madurai"]
+    },
+    "USA": {
+        "New York": ["New York City", "Buffalo", "Rochester"],
+        "California": ["Los Angeles", "San Francisco", "San Diego"],
+        "Texas": ["Houston", "Austin", "Dallas"]
+    },
+    "United Kingdom": {
+        "England": ["London", "Manchester", "Liverpool"],
+        "Scotland": ["Edinburgh", "Glasgow"]
+    }
+};
+
 const Profile: React.FC = () => {
-    const { user } = useAuth();
+    const { user, updateUser } = useAuth();
+    const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
+
+    // Form State
+    const [country, setCountry] = React.useState(user?.region?.split(', ')[2] || '');
+    const [state, setState] = React.useState(user?.region?.split(', ')[1] || '');
+    const [city, setCity] = React.useState(user?.region?.split(', ')[0] || '');
+    const [level, setLevel] = React.useState(user?.level || '');
+
+    // Update state when modal opens
+    React.useEffect(() => {
+        if (isEditModalOpen && user) {
+            const parts = user.region?.split(', ') || [];
+            if (parts.length === 3) {
+                setCity(parts[0]);
+                setState(parts[1]);
+                setCountry(parts[2]);
+            }
+            setLevel(user.level || '');
+        }
+    }, [isEditModalOpen, user]);
+
+    // Reset dependent fields
+    React.useEffect(() => {
+        if (!LOCATIONS[country]) return;
+        if (!LOCATIONS[country][state]) setState('');
+    }, [country]);
+
+    React.useEffect(() => {
+        if (state && LOCATIONS[country] && !LOCATIONS[country][state]?.includes(city)) setCity('');
+    }, [state]);
+
 
     if (!user) {
         return <Navigate to="/auth" replace />;
     }
 
-    // Helper to format array items (like sports)
-    const formatList = (items?: string[]) => {
-        if (!items || items.length === 0) return 'None Selected';
-        return items.join(', ');
+    const handleSave = async () => {
+        await updateUser({
+            region: `${city}, ${state}, ${country}`,
+            level
+        });
+        setIsEditModalOpen(false);
     };
 
     return (
@@ -125,9 +176,10 @@ const Profile: React.FC = () => {
                                     <div className="relative pt-2">
                                         <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden">
                                             <div
-                                                className={`h-full rounded-full ${user.level === 'beginner' ? 'w-1/3 bg-green-500' :
-                                                        user.level === 'intermediate' ? 'w-2/3 bg-yellow-500' :
-                                                            user.level === 'advanced' ? 'w-full bg-red-600' : 'w-0'
+                                                className={`h-full rounded-full ${user.level === 'Recreational' ? 'w-1/4 bg-green-500' :
+                                                    user.level === 'State' ? 'w-1/2 bg-blue-500' :
+                                                        user.level === 'National' ? 'w-3/4 bg-yellow-500' :
+                                                            user.level === 'International' ? 'w-full bg-red-600' : 'w-0'
                                                     }`}
                                             />
                                         </div>
@@ -142,13 +194,106 @@ const Profile: React.FC = () => {
                     <div className="mt-12 p-8 bg-gradient-to-r from-blue-900/20 to-purple-900/20 rounded-3xl border border-white/5 text-center">
                         <h4 className="text-2xl font-black italic uppercase mb-2">Ready to compete?</h4>
                         <p className="text-gray-400 mb-6">Complete your profile to unlock verified tournaments and ranked matches.</p>
-                        <button className="bg-white text-black px-8 py-3 rounded-full font-black uppercase tracking-widest hover:bg-gray-200 transition-colors">
+                        <button
+                            onClick={() => setIsEditModalOpen(true)}
+                            className="bg-white text-black px-8 py-3 rounded-full font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                        >
                             Edit Profile
                         </button>
                     </div>
 
                 </div>
             </main>
+
+            {/* Edit Profile Modal */}
+            {isEditModalOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsEditModalOpen(false)} />
+
+                    <div className="bg-zinc-900 border border-white/10 rounded-3xl p-8 w-full max-w-lg relative z-10 animate-in fade-in zoom-in-95 duration-200 shadow-2xl">
+                        <h2 className="text-2xl font-black italic uppercase mb-6">Complete Profile</h2>
+
+                        <div className="space-y-6">
+                            {/* Location Section */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Location</label>
+                                <div className="space-y-3">
+                                    <select
+                                        value={country}
+                                        onChange={(e) => {
+                                            setCountry(e.target.value);
+                                            setState('');
+                                            setCity('');
+                                        }}
+                                        className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:border-blue-500 text-white appearance-none"
+                                    >
+                                        <option value="">Select Country</option>
+                                        {Object.keys(LOCATIONS).map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
+
+                                    <select
+                                        value={state}
+                                        onChange={(e) => {
+                                            setState(e.target.value);
+                                            setCity('');
+                                        }}
+                                        disabled={!country}
+                                        className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:border-blue-500 text-white appearance-none disabled:opacity-50"
+                                    >
+                                        <option value="">Select State</option>
+                                        {country && LOCATIONS[country] && Object.keys(LOCATIONS[country]).map(s => (
+                                            <option key={s} value={s}>{s}</option>
+                                        ))}
+                                    </select>
+
+                                    <select
+                                        value={city}
+                                        onChange={(e) => setCity(e.target.value)}
+                                        disabled={!state}
+                                        className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:border-blue-500 text-white appearance-none disabled:opacity-50"
+                                    >
+                                        <option value="">Select City</option>
+                                        {country && state && LOCATIONS[country][state]?.map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Level Section */}
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-2 ml-1">Competition Level</label>
+                                <select
+                                    value={level}
+                                    onChange={(e) => setLevel(e.target.value)}
+                                    className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 focus:outline-none focus:border-blue-500 text-white appearance-none"
+                                >
+                                    <option value="">Select Level</option>
+                                    <option value="Recreational">Recreational</option>
+                                    <option value="State">State</option>
+                                    <option value="National">National</option>
+                                    <option value="International">International</option>
+                                </select>
+                            </div>
+
+                            <div className="flex gap-4 pt-4">
+                                <button
+                                    onClick={() => setIsEditModalOpen(false)}
+                                    className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest bg-gray-600/20 hover:bg-gray-600/40 text-gray-300 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    className="flex-1 py-4 rounded-xl font-bold uppercase tracking-widest bg-white text-black hover:bg-gray-200 transition-colors"
+                                >
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <Footer />
             {/* Background static / noise overlay for cinematic feel */}
