@@ -15,6 +15,8 @@ import TermsOfService from './components/TermsOfService';
 import Auth from './pages/Auth';
 import Feed from './pages/Feed';
 import Profile from './pages/Profile';
+import AllSports from './pages/AllSports';
+import Rankings from './pages/Rankings';
 
 const Home: React.FC = () => {
   return (
@@ -26,7 +28,7 @@ const Home: React.FC = () => {
 
         <div className="relative z-10 bg-black">
           <Features />
-          <SportsGrid />
+          <SportsGrid limit={4} />
           <Community />
           <Waitlist />
         </div>
@@ -49,6 +51,8 @@ const App: React.FC = () => {
       <Route path="/auth" element={<Auth />} />
       <Route path="/feed" element={<Feed />} />
       <Route path="/profile" element={<Profile />} />
+      <Route path="/sports" element={<AllSports />} />
+      <Route path="/rankings" element={<Rankings />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
     </Routes>

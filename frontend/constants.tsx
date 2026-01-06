@@ -251,3 +251,83 @@ export const NEARBY_USERS: NearbyUser[] = [
     image: 'https://i.pravatar.cc/150?u=sean'
   }
 ];
+
+export interface MatchResult {
+  id: string;
+  winner: string;
+  loser: string;
+  winnerElo: number;
+  loserElo: number;
+  eloChange: number;
+  score: string;
+}
+
+export const MATCH_RESULTS: MatchResult[] = [
+  {
+    id: 'm1',
+    winner: 'Arjun',
+    loser: 'Rahul',
+    winnerElo: 1450,
+    loserElo: 1420,
+    eloChange: 15,
+    score: '21-18, 21-19'
+  },
+  {
+    id: 'm2',
+    winner: 'Sarah',
+    loser: 'Priya',
+    winnerElo: 1200,
+    loserElo: 1150,
+    eloChange: 12,
+    score: '6-4, 6-3'
+  },
+  {
+    id: 'm3',
+    winner: 'Vikram',
+    loser: 'Dev',
+    winnerElo: 1600,
+    loserElo: 1580,
+    eloChange: 10,
+    score: '11-9, 11-8, 11-7'
+  }
+];
+
+export interface MatchOpportunity {
+  id: string;
+  title: string;
+  location: string;
+  distance: string;
+  requiredEloRange: [number, number];
+  sport: string;
+  time: string;
+}
+
+export const MATCH_OPPORTUNITIES: MatchOpportunity[] = [
+  {
+    id: 'mo1',
+    title: '2v2 Padel Match - HSR Layout',
+    location: 'HSR Layout',
+    distance: '1.2km away',
+    requiredEloRange: [1100, 1300],
+    sport: 'padel',
+    time: '7:00 PM'
+  },
+  {
+    id: 'mo2',
+    title: 'Tennis Singles - Advanced',
+    location: 'Koramangala Club',
+    distance: '2.5km away',
+    requiredEloRange: [1400, 1600],
+    sport: 'tennis',
+    time: '6:30 PM'
+  },
+  {
+    id: 'mo3',
+    title: 'Badminton Doubles',
+    location: 'Smash Arena',
+    distance: '0.8km away',
+    requiredEloRange: [1000, 1200],
+    sport: 'badminton',
+    time: '8:00 PM'
+  }
+];

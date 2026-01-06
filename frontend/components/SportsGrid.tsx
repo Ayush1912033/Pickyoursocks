@@ -1,7 +1,15 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SPORTS } from '../constants';
 
-const SportsGrid: React.FC = () => {
+interface SportsGridProps {
+  limit?: number;
+}
+
+const SportsGrid: React.FC<SportsGridProps> = ({ limit }) => {
+  const navigate = useNavigate();
+  const displayedSports = limit ? SPORTS.slice(0, limit) : SPORTS;
+
   return (
     <section id="sports" className="py-24 bg-zinc-950">
       <div className="max-w-7xl mx-auto px-6 lg:px-12">
@@ -11,16 +19,18 @@ const SportsGrid: React.FC = () => {
               Pick Your <span className="text-blue-600">Arena</span>
             </h2>
           </div>
-          <button
-            onClick={() => document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' })}
-            className="text-sm font-bold uppercase tracking-widest text-blue-500 hover:text-white transition-colors"
-          >
-            View All Sports →
-          </button>
+          {limit && (
+            <button
+              onClick={() => navigate('/sports')}
+              className="text-sm font-bold uppercase tracking-widest text-blue-500 hover:text-white transition-colors"
+            >
+              View All Sports →
+            </button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {SPORTS.map((sport) => (
+          {displayedSports.map((sport) => (
             <div
               key={sport.id}
               className="group relative h-[450px] overflow-hidden rounded-3xl bg-zinc-900 border border-white/5 cursor-pointer"
