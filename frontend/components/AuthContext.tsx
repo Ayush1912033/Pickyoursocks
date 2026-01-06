@@ -1,9 +1,20 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from 'react';
+import { supabase } from '../lib/supabase';
+
+/* =======================
+   Types
+======================= */
 
 interface User {
   id: string;
-  name?: string;
   email: string;
+  name?: string;
   sports?: string[];
   region?: string;
   dob?: string;
@@ -14,124 +25,181 @@ interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+
   login: (email: string, password: string) => Promise<void>;
   signup: (userData: Omit<User, 'id'>, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (updates: Partial<User>) => Promise<void>;
 }
 
+/* =======================
+   Context
+======================= */
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/* =======================
+   Provider
+======================= */
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  /* -----------------------
+     Map Supabase User
+  ----------------------- */
+  const mapSupabaseUser = (sbUser: any): User => ({
+    id: sbUser.id,
+    email: sbUser.email,
+    name: sbUser.user_metadata?.full_name,
+    sports: sbUser.user_metadata?.sports,
+    region: sbUser.user_metadata?.region,
+    dob: sbUser.user_metadata?.dob,
+    gender: sbUser.user_metadata?.gender,
+    level: sbUser.user_metadata?.level,
+  });
+
+  /* -----------------------
+     Load Session on Start
+  ----------------------- */
   useEffect(() => {
-    // Check local storage for existing user on mount
-    const storedUser = localStorage.getItem('mock_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const initAuth = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        setUser(mapSupabaseUser(session.user));
+      }
+      setIsLoading(false);
+    };
+
+    initAuth();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser(mapSupabaseUser(session.user));
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
+  /* -----------------------
+     Email Login
+  ----------------------- */
   const login = async (email: string, password: string) => {
     setIsLoading(true);
-    // Simulate network delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    // Simulate finding a user (for this mock, we'll just "login" effectively any non-empty input, 
-    // or you could check against a stored signup default? For now, let's keep it simple: 
-    // If they login, we create a session for that email).
-    const mockUser: User = { id: 'mock-id-' + Date.now(), email, name: 'User' };
-
-    // If we wanted to be stricter, we'd only allow login if they signed up previously.
-    // Let's implement that simple check using another localStorage key 'mock_db_users'
-    const dbUsersStr = localStorage.getItem('mock_db_users');
-    const dbUsers = dbUsersStr ? JSON.parse(dbUsersStr) : [];
-    const foundUser = dbUsers.find((u: any) => u.email === email && u.password === password);
-
-    if (foundUser) {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { password: _p, ...sessionUser } = foundUser;
-      setUser(sessionUser);
-      localStorage.setItem('mock_user', JSON.stringify(sessionUser));
-    } else {
-      setIsLoading(false);
-      throw new Error("Invalid email or password");
-    }
-
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     setIsLoading(false);
+    if (error) throw error;
   };
 
+  /* -----------------------
+     Signup
+  ----------------------- */
   const signup = async (userData: Omit<User, 'id'>, password: string) => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-    // Check if user exists
-    const dbUsersStr = localStorage.getItem('mock_db_users');
-    let dbUsers = dbUsersStr ? JSON.parse(dbUsersStr) : [];
-
-    if (dbUsers.find((u: any) => u.email === userData.email)) {
-      setIsLoading(false);
-      throw new Error("User already exists");
-    }
-
-    const newUser = {
-      id: 'mock-id-' + Date.now(),
-      ...userData,
-      password
-    };
-    dbUsers.push(newUser);
-    localStorage.setItem('mock_db_users', JSON.stringify(dbUsers));
-
-    // Auto login
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _p, ...sessionUser } = newUser;
-    setUser(sessionUser);
-    localStorage.setItem('mock_user', JSON.stringify(sessionUser));
+    const { error } = await supabase.auth.signUp({
+      email: userData.email,
+      password,
+      options: {
+        data: {
+          full_name: userData.name,
+          sports: userData.sports,
+          region: userData.region,
+          dob: userData.dob,
+          gender: userData.gender,
+          level: userData.level,
+        },
+      },
+    });
 
     setIsLoading(false);
+    if (error) throw error;
   };
 
+  /* -----------------------
+     Google OAuth
+  ----------------------- */
+  const loginWithGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/feed`,
+      },
+    });
+    if (error) throw error;
+  };
+
+  /* -----------------------
+     Logout
+  ----------------------- */
   const logout = async () => {
     setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
+    await supabase.auth.signOut();
     setUser(null);
-    localStorage.removeItem('mock_user');
     setIsLoading(false);
   };
 
+  /* -----------------------
+     Update User Profile
+  ----------------------- */
   const updateUser = async (updates: Partial<User>) => {
     if (!user) return;
 
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    localStorage.setItem('mock_user', JSON.stringify(updatedUser));
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name: updates.name ?? user.name,
+        sports: updates.sports ?? user.sports,
+        region: updates.region ?? user.region,
+        dob: updates.dob ?? user.dob,
+        gender: updates.gender ?? user.gender,
+        level: updates.level ?? user.level,
+      },
+    });
 
-    // Update in db list as well
-    const dbUsersStr = localStorage.getItem('mock_db_users');
-    if (dbUsersStr) {
-      const dbUsers = JSON.parse(dbUsersStr);
-      const index = dbUsers.findIndex((u: User) => u.email === user.email);
-      if (index !== -1) {
-        dbUsers[index] = { ...dbUsers[index], ...updates };
-        localStorage.setItem('mock_db_users', JSON.stringify(dbUsers));
-      }
-    }
+    if (error) throw error;
   };
 
+  /* -----------------------
+     Provider Value
+  ----------------------- */
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, updateUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        signup,
+        loginWithGoogle,
+        logout,
+        updateUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 };
 
+/* =======================
+   Hook
+======================= */
+
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
   }
-  return context;
+  return ctx;
 };
