@@ -6,7 +6,7 @@ import { useAuth } from './AuthContext';
 
 const Navbar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -17,11 +17,6 @@ const Navbar: React.FC = () => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/');
-  };
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -60,38 +55,14 @@ const Navbar: React.FC = () => {
 
             {/* Auth Buttons */}
             {user ? (
-              <div className="relative group">
-                <button
-                  className="rounded-full transition-all group-hover:ring-2 ring-blue-600/50 outline-none"
-                >
-                  <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-600/20">
-                    <span className="text-base font-black italic">
-                      {user.name ? user.name[0].toUpperCase() : 'U'}
-                    </span>
-                  </div>
-                </button>
-
-                {/* Dropdown Menu */}
-                <div className="absolute right-0 top-full pt-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform translate-y-2 group-hover:translate-y-0">
-                  <div className="bg-black/95 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden w-48 shadow-xl">
-                    <div className="p-4 border-b border-white/10">
-                      <p className="text-xs text-gray-400 font-medium">Signed in as</p>
-                      <p className="text-sm font-bold text-white truncate">{user.email}</p>
-                    </div>
-
-                    <Link to="/profile" className="block w-full text-left px-4 py-3 text-xs font-bold uppercase tracking-widest text-gray-300 hover:text-white hover:bg-white/5 transition-colors">
-                      My Profile
-                    </Link>
-
-                    <button
-                      onClick={handleLogout}
-                      className="block w-full text-left px-4 py-3 text-xs font-bold uppercase tracking-widest text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <Link
+                to="/profile"
+                className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-lg shadow-blue-600/20 hover:scale-105 transition-transform"
+              >
+                <span className="text-base font-black italic">
+                  {user.name ? user.name[0].toUpperCase() : 'U'}
+                </span>
+              </Link>
             ) : (
               <div className="flex items-center gap-4 pl-4 border-l border-white/10">
                 <Link

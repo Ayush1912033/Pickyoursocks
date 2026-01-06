@@ -3,7 +3,8 @@ import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { User, MapPin, Trophy, Mail, Calendar, Activity } from 'lucide-react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
+import { MATCH_RESULTS } from '../constants';
 
 const LOCATIONS: Record<string, Record<string, string[]>> = {
     "India": {
@@ -24,7 +25,8 @@ const LOCATIONS: Record<string, Record<string, string[]>> = {
 };
 
 const Profile: React.FC = () => {
-    const { user, updateUser } = useAuth();
+    const { user, updateUser, logout } = useAuth();
+    const navigate = useNavigate();
     const [isEditModalOpen, setIsEditModalOpen] = React.useState(false);
 
     // Form State
@@ -191,16 +193,59 @@ const Profile: React.FC = () => {
 
                     </div>
 
-                    <div className="mt-12 p-8 bg-gradient-to-r from-blue-900/20 to-purple-900/20 rounded-3xl border border-white/5 text-center">
-                        <h4 className="text-2xl font-black italic uppercase mb-2">Ready to compete?</h4>
-                        <p className="text-gray-400 mb-6">Complete your profile to unlock verified tournaments and ranked matches.</p>
+                    {/* Match History Section */}
+                    <div className="mt-12">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-3xl font-black italic uppercase tracking-tighter">Match History</h2>
+                            <button className="text-sm font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-colors">View All</button>
+                        </div>
+
+                        <div className="space-y-4">
+                            {MATCH_RESULTS.map((match) => {
+                                // Mock logic: Assume "You" are the winner for demo purposes if ID is odd, else loser.
+                                const isWin = parseInt(match.id.replace('m', '')) % 2 !== 0;
+                                const opponent = isWin ? match.loser : match.winner;
+                                const eloDiff = isWin ? `+${match.eloChange}` : `-${match.eloChange}`;
+
+                                return (
+                                    <div key={match.id} className="group bg-zinc-900/50 backdrop-blur-sm border border-white/5 p-5 rounded-2xl flex items-center justify-between hover:bg-zinc-900 transition-colors">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-black italic ${isWin ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-500'}`}>
+                                                {isWin ? 'W' : 'L'}
+                                            </div>
+                                            <div>
+                                                <h4 className="font-bold text-lg">vs {opponent}</h4>
+                                                <p className="text-gray-500 text-sm font-medium">{match.score}</p>
+                                            </div>
+                                        </div>
+                                        <div className={`text-right ${isWin ? 'text-green-500' : 'text-red-500'}`}>
+                                            <span className="text-xl font-black italic tracking-tighter block">{eloDiff} RP</span>
+                                            <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Ranked</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Logout Section */}
+                    <div className="mt-16 mb-8 flex justify-center">
                         <button
-                            onClick={() => setIsEditModalOpen(true)}
-                            className="bg-white text-black px-8 py-3 rounded-full font-black uppercase tracking-widest hover:bg-gray-200 transition-colors"
+                            onClick={async () => {
+                                await logout();
+                                navigate('/');
+                            }}
+                            className="text-red-500 font-bold uppercase tracking-widest text-sm hover:text-red-400 hover:underline transition-all"
                         >
-                            Edit Profile
+                            Logout
                         </button>
                     </div>
+
+                    {(!user.region || !user.level) && (
+                        <div className="mt-12 p-8 bg-gradient-to-r from-blue-900/20 to-purple-900/20 rounded-3xl border border-white/5 text-center">
+                            {/* ... existing content ... */}
+                        </div>
+                    )}
 
                 </div>
             </main>

@@ -44,7 +44,32 @@ const Home: React.FC = () => {
   );
 };
 
+import { isSupabaseConfigured } from './lib/supabase';
+
 const App: React.FC = () => {
+  if (!isSupabaseConfigured) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-zinc-900 border border-red-500/30 rounded-3xl p-8 shadow-2xl">
+          <h1 className="text-3xl font-black italic text-red-500 mb-4">Configuration Missing</h1>
+          <p className="text-gray-400 mb-6">
+            The application cannot start because the Supabase configuration is missing.
+          </p>
+
+          <div className="bg-black/50 p-4 rounded-xl border border-white/10 mb-6 font-mono text-xs text-blue-400 overflow-x-auto">
+            <p className="text-gray-500 mb-2"># Create a file named .env in frontend/</p>
+            <p>VITE_SUPABASE_URL=your_project_url</p>
+            <p>VITE_SUPABASE_ANON_KEY=your_anon_key</p>
+          </div>
+
+          <p className="text-sm text-gray-500 text-center">
+            Restart the server after adding the file.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Routes>
       <Route path="/" element={<Home />} />

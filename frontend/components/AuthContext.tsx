@@ -64,7 +64,16 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   /* -----------------------
      Load Session on Start
   ----------------------- */
+  /* -----------------------
+     Load Session on Start
+  ----------------------- */
   useEffect(() => {
+    // If Supabase is not configured, stop loading and do nothing
+    if (!supabase) {
+      setIsLoading(false);
+      return;
+    }
+
     const initAuth = async () => {
       const {
         data: { session },
@@ -95,6 +104,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Email Login
   ----------------------- */
   const login = async (email: string, password: string) => {
+    if (!supabase) throw new Error("Supabase is not configured");
     setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -108,6 +118,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Signup
   ----------------------- */
   const signup = async (userData: Omit<User, 'id'>, password: string) => {
+    if (!supabase) throw new Error("Supabase is not configured");
     setIsLoading(true);
 
     const { error } = await supabase.auth.signUp({
@@ -133,6 +144,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Google OAuth
   ----------------------- */
   const loginWithGoogle = async () => {
+    if (!supabase) throw new Error("Supabase is not configured");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -146,6 +158,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Logout
   ----------------------- */
   const logout = async () => {
+    if (!supabase) return;
     setIsLoading(true);
     await supabase.auth.signOut();
     setUser(null);
@@ -156,9 +169,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Update User Profile
   ----------------------- */
   const updateUser = async (updates: Partial<User>) => {
-    if (!user) return;
+    if (!user || !supabase) return;
 
-    const { error } = await supabase.auth.updateUser({
+    const { data, error } = await supabase.auth.updateUser({
       data: {
         full_name: updates.name ?? user.name,
         sports: updates.sports ?? user.sports,
@@ -170,6 +183,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     });
 
     if (error) throw error;
+
+    // Immediately update local state
+    if (data.user) {
+      setUser(mapSupabaseUser(data.user));
+    }
   };
 
   /* -----------------------
