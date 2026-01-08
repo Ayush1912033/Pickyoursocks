@@ -8,7 +8,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
-  
+
   body {
     @apply bg-black text-white antialiased;
   }
@@ -34,4 +34,34 @@
 
 ::-webkit-scrollbar-thumb:hover {
   background: #444;
+}
+
+@layer base {
+
+  /* Global Micro-interaction: All buttons shrink slightly when pressed */
+  button {
+    @apply transition-transform duration-100 ease-in-out active:scale-95;
+  }
+}
+
+@layer utilities {
+
+  /* Page Entry Animation */
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+      filter: blur(4px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+      filter: blur(0);
+    }
+  }
+
+  .animate-enter {
+    animation: fadeInUp 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  }
 }

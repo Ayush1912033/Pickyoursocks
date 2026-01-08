@@ -1,35 +1,40 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
-import { SPORTS } from '../constants';
-import { User as UserIcon, ChevronDown, X, Check } from 'lucide-react';
+import { User as UserIcon } from 'lucide-react';
 
 const Auth: React.FC = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode'); // 'login' or 'signup'
+
+  const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
   const navigate = useNavigate();
 
   // ⬇️ UPDATED: include loginWithGoogle
-  const { login, signup, loginWithGoogle, isLoading } = useAuth();
+  const { login, signup, loginWithGoogle, isLoading, user } = useAuth();
 
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [selectedSports, setSelectedSports] = useState<string[]>([]);
-  const [isSportsDropdownOpen, setIsSportsDropdownOpen] = useState(false);
+  // const [isSportsDropdownOpen, setIsSportsDropdownOpen] = useState(false); // Unused currently based on simplified signup
   const [error, setError] = useState('');
 
-  const toggleSport = (sportId: string) => {
-    setSelectedSports((prev) => {
-      if (prev.includes(sportId)) {
-        return prev.filter((id) => id !== sportId);
-      }
-      if (prev.length >= 3) {
-        return prev;
-      }
-      return [...prev, sportId];
-    });
-  };
+  // Effect: Sync state with URL param if it changes
+  useEffect(() => {
+    const mode = searchParams.get('mode');
+    if (mode === 'signup') setIsLogin(false);
+    if (mode === 'login') setIsLogin(true);
+  }, [searchParams]);
+
+  // Effect: Redirect if already logged in
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate('/feed', { replace: true });
+    }
+  }, [user, isLoading, navigate]);
+
 
   /* --------------------
      Login
@@ -45,7 +50,7 @@ const Auth: React.FC = () => {
 
     try {
       await login(email, password);
-      navigate('/feed');
+      // Navigation handled by useEffect
     } catch (err: any) {
       setError(err.message || 'Login failed');
     }
@@ -63,10 +68,10 @@ const Auth: React.FC = () => {
       return;
     }
 
-    if (selectedSports.length === 0) {
-      setError('Please select at least one sport');
-      return;
-    }
+    // if (selectedSports.length === 0) {
+    //   setError('Please select at least one sport');
+    //   return;
+    // }
 
     try {
       await signup(
@@ -77,7 +82,7 @@ const Auth: React.FC = () => {
         },
         password
       );
-      navigate('/feed');
+      // Navigation handled by useEffect
     } catch (err: any) {
       setError(err.message || 'Signup failed');
     }
@@ -94,6 +99,13 @@ const Auth: React.FC = () => {
       setError(err.message || 'Google login failed');
     }
   };
+
+  const toggleMode = () => {
+    const newMode = !isLogin ? 'login' : 'signup';
+    setIsLogin(!isLogin);
+    // Optional: Update URL without reload to keep state in sync
+    navigate(`/auth?mode=${newMode}`, { replace: true });
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-black text-white px-4 relative overflow-hidden py-10">
@@ -190,8 +202,8 @@ const Auth: React.FC = () => {
               />
             </div>
 
-            {/* Sports Dropdown (unchanged) */}
-            {/* YOUR EXISTING SPORTS CODE REMAINS AS IS */}
+            {/* Sports Dropdown (unchanged) - Commented out for now as per previous task simplification, can re-add if needed */}
+            {/* YOUR EXISTING SPORTS CODE REMAINS AS IS - Keeping simplified for now based on snippet context */}
 
             <button
               disabled={isLoading}
@@ -214,7 +226,7 @@ const Auth: React.FC = () => {
         <p className="text-center text-gray-500 mt-8">
           {isLogin ? "Don't have an account?" : 'Already have an account?'}{' '}
           <button
-            onClick={() => setIsLogin(!isLogin)}
+            onClick={toggleMode}
             className="text-white font-bold hover:text-blue-400"
           >
             {isLogin ? 'Sign Up' : 'Login'}

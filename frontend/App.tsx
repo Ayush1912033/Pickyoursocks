@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -10,6 +10,7 @@ import Waitlist from './components/Waitlist';
 import Footer from './components/Footer';
 import PrivacyPolicy from './components/PrivacyPolicy';
 import TermsOfService from './components/TermsOfService';
+import { useAuth } from './components/AuthContext';
 
 // 🔐 Auth Page (Login + Signup combined)
 import Auth from './pages/Auth';
@@ -17,8 +18,26 @@ import Feed from './pages/Feed';
 import Profile from './pages/Profile';
 import AllSports from './pages/AllSports';
 import Rankings from './pages/Rankings';
+import ProtectedRoute from './components/ProtectedRoute';
 
 const Home: React.FC = () => {
+  const { user, isLoading, logout } = useAuth();
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (user && location.state?.fromLogout) {
+      logout();
+    }
+  }, [user, location, logout]);
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-black" />;
+  }
+
+  if (user && !location.state?.fromLogout) {
+    return <Navigate to="/feed" replace />;
+  }
+
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-600 selection:text-white">
       <Navbar />
@@ -74,10 +93,33 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/auth" element={<Auth />} />
-      <Route path="/feed" element={<Feed />} />
-      <Route path="/profile" element={<Profile />} />
+
+      {/* Protected Routes */}
+      <Route
+        path="/feed"
+        element={
+          <ProtectedRoute>
+            <Feed />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/profile"
+        element={
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/sports" element={<AllSports />} />
-      <Route path="/rankings" element={<Rankings />} />
+      <Route
+        path="/rankings"
+        element={
+          <ProtectedRoute>
+            <Rankings />
+          </ProtectedRoute>
+        }
+      />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsOfService />} />
     </Routes>

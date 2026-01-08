@@ -99,7 +99,7 @@ const Profile: React.FC = () => {
         <div className="min-h-screen bg-black text-white selection:bg-blue-600 selection:text-white flex flex-col">
             <Navbar />
 
-            <main className="flex-grow pt-32 pb-20 px-6 lg:px-12 relative overflow-hidden">
+            <main className="flex-grow pt-32 pb-20 px-6 lg:px-12 relative overflow-hidden animate-enter">
                 {/* Background Gradients */}
                 <div className="absolute top-0 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-[128px] pointer-events-none" />
                 <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-purple-600/10 rounded-full blur-[128px] pointer-events-none" />
@@ -337,9 +337,8 @@ const Profile: React.FC = () => {
                     {/* Logout Section */}
                     <div className="mt-24 mb-12 flex justify-center">
                         <button
-                            onClick={async () => {
-                                await logout();
-                                navigate('/');
+                            onClick={() => {
+                                navigate('/', { state: { fromLogout: true } });
                             }}
                             className="text-red-500 font-bold uppercase tracking-widest text-sm hover:text-red-400 hover:underline transition-all"
                         >
