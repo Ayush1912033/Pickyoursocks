@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
-import { MapPin, TrendingUp, Trophy, ArrowRight } from 'lucide-react';
-import { NEARBY_USERS } from '../constants';
+import { MapPin, TrendingUp, Trophy, ArrowRight, Loader2 } from 'lucide-react';
+import { api } from '../services/api';
+import { NearbyUser } from '../constants';
+import ErrorState from '../components/ErrorState';
 
 // Mock rank data for the current user
 const MY_RANK = {
@@ -16,11 +18,33 @@ const MY_RANK = {
 };
 
 const Rankings: React.FC = () => {
+    const [users, setUsers] = useState<NearbyUser[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchRankings = async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const data = await api.getNearbyUsers();
+            setUsers(data);
+        } catch (error) {
+            console.error("Failed to fetch rankings:", error);
+            setError("Failed to load leaderboard.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchRankings();
+    }, []);
+
     return (
         <div className="min-h-screen bg-black text-white selection:bg-blue-600/30">
             <Navbar />
 
-            <main className="pt-24 pb-20 px-4 md:px-8 max-w-4xl mx-auto">
+            <main className="pt-24 pb-20 px-4 md:px-8 max-w-4xl mx-auto animate-enter">
                 <div className="mb-12">
                     <h1 className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter mb-4">
                         Your <span className="text-blue-600">Standing</span>
@@ -83,64 +107,94 @@ const Rankings: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
-                            <thead className="bg-zinc-900/50 text-xs font-bold uppercase tracking-wider text-gray-500">
-                                <tr>
-                                    <th className="px-6 py-4">Rank</th>
-                                    <th className="px-6 py-4">Athlete</th>
-                                    <th className="px-6 py-4">Tier</th>
-                                    <th className="px-6 py-4 text-right">Points</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {NEARBY_USERS.map((user, index) => (
-                                    <tr key={user.id} className="hover:bg-white/5 transition-colors group">
-                                        <td className="px-6 py-4 font-black italic text-gray-500">
-                                            #{user.rank}
+                    {error ? (
+                        <div className="p-6">
+                            <ErrorState onRetry={fetchRankings} message="Failed to load leaderboard." />
+                        </div>
+                    ) : isLoading ? (
+                        <div className="p-6 space-y-4">
+                            {[1, 2, 3, 4, 5].map((_, i) => (
+                                <div key={i} className="flex items-center justify-between animate-pulse">
+                                    <div className="flex items-center gap-4 w-1/2">
+                                        <div className="w-8 h-8 bg-zinc-900 rounded-lg"></div>
+                                        <div className="w-10 h-10 bg-zinc-900 rounded-full"></div>
+                                        <div className="space-y-2 flex-1">
+                                            <div className="h-4 bg-zinc-900 rounded w-3/4"></div>
+                                            <div className="h-3 bg-zinc-900 rounded w-1/2"></div>
+                                        </div>
+                                    </div>
+                                    <div className="w-20 h-6 bg-zinc-900 rounded"></div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : users.length > 0 ? (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-zinc-900/50 text-xs font-bold uppercase tracking-wider text-gray-500">
+                                    <tr>
+                                        <th className="px-6 py-4">Rank</th>
+                                        <th className="px-6 py-4">Athlete</th>
+                                        <th className="px-6 py-4">Tier</th>
+                                        <th className="px-6 py-4 text-right">Points</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-white/5">
+                                    {users.map((user, index) => (
+                                        <tr key={user.id} className="hover:bg-white/5 transition-colors group">
+                                            <td className="px-6 py-4 font-black italic text-gray-500">
+                                                #{user.rank}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <img src={user.image} alt={user.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
+                                                    <div>
+                                                        <div className="font-bold text-white group-hover:text-blue-500 transition-colors">{user.name}</div>
+                                                        <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">{user.sport}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-400">
+                                                {index === 0 ? 'Elite' : index < 3 ? 'Advanced' : 'Intermediate'}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-black italic text-white text-lg">
+                                                {2500 - (index * 150)}
+                                            </td>
+                                        </tr>
+                                    ))}
+
+                                    {/* Mock inserting the current user at #12 */}
+                                    <tr className="bg-blue-900/20 border-l-4 border-blue-500">
+                                        <td className="px-6 py-4 font-black italic text-blue-400">
+                                            #{MY_RANK.rank}
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <img src={user.image} alt={user.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
+                                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
                                                 <div>
-                                                    <div className="font-bold text-white group-hover:text-blue-500 transition-colors">{user.name}</div>
-                                                    <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">{user.sport}</div>
+                                                    <div className="font-bold text-white">You</div>
+                                                    <div className="text-xs text-blue-400 font-bold uppercase tracking-wider">Intermediate II</div>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-400">
-                                            {index === 0 ? 'Elite' : index < 3 ? 'Advanced' : 'Intermediate'}
+                                        <td className="px-6 py-4 text-sm font-medium text-gray-300">
+                                            {MY_RANK.tier}
                                         </td>
                                         <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                            {2500 - (index * 150)}
+                                            {MY_RANK.points}
                                         </td>
                                     </tr>
-                                ))}
-
-                                {/* Mock inserting the current user at #12 */}
-                                <tr className="bg-blue-900/20 border-l-4 border-blue-500">
-                                    <td className="px-6 py-4 font-black italic text-blue-400">
-                                        #{MY_RANK.rank}
-                                    </td>
-                                    <td className="px-6 py-4">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
-                                            <div>
-                                                <div className="font-bold text-white">You</div>
-                                                <div className="text-xs text-blue-400 font-bold uppercase tracking-wider">Intermediate II</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 text-sm font-medium text-gray-300">
-                                        {MY_RANK.tier}
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                        {MY_RANK.points}
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="py-20 text-center">
+                            <Trophy className="mx-auto h-16 w-16 text-zinc-800 mb-4" />
+                            <h3 className="text-lg font-bold text-white mb-2">Season Starts Soon</h3>
+                            <p className="text-gray-400 max-w-sm mx-auto">
+                                The ladder is currently resetting. Check back later to see who claims the top spot.
+                            </p>
+                        </div>
+                    )}
                 </div>
 
             </main>

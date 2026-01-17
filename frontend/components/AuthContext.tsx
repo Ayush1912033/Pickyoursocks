@@ -15,11 +15,22 @@ interface User {
   id: string;
   email: string;
   name?: string;
+  username?: string;
+  profile_photo?: string;
   sports?: string[];
   region?: string;
+  locality?: string;
   dob?: string;
   gender?: string;
   level?: string;
+  elo?: number;
+  preferred_format?: string;
+  experience_years?: number;
+  available_days?: string[];
+  time_slots?: string[];
+  bio?: string;
+  achievements?: string[];
+  connections?: number;
 }
 
 interface AuthContextType {
@@ -54,11 +65,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     id: sbUser.id,
     email: sbUser.email,
     name: sbUser.user_metadata?.full_name,
+    username: sbUser.user_metadata?.username,
+    profile_photo: sbUser.user_metadata?.profile_photo,
     sports: sbUser.user_metadata?.sports,
     region: sbUser.user_metadata?.region,
+    locality: sbUser.user_metadata?.locality,
     dob: sbUser.user_metadata?.dob,
     gender: sbUser.user_metadata?.gender,
     level: sbUser.user_metadata?.level,
+    elo: sbUser.user_metadata?.elo,
+    preferred_format: sbUser.user_metadata?.preferred_format,
+    experience_years: sbUser.user_metadata?.experience_years,
+    available_days: sbUser.user_metadata?.available_days,
+    time_slots: sbUser.user_metadata?.time_slots,
+    bio: sbUser.user_metadata?.bio,
+    achievements: sbUser.user_metadata?.achievements,
+    connections: sbUser.user_metadata?.connections,
   });
 
   /* -----------------------
@@ -127,11 +149,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       options: {
         data: {
           full_name: userData.name,
+          username: userData.username,
+          profile_photo: userData.profile_photo,
           sports: userData.sports,
           region: userData.region,
+          locality: userData.locality,
           dob: userData.dob,
           gender: userData.gender,
           level: userData.level,
+          elo: userData.elo,
+          preferred_format: userData.preferred_format,
+          experience_years: userData.experience_years,
+          available_days: userData.available_days,
+          time_slots: userData.time_slots,
+          bio: userData.bio,
+          achievements: userData.achievements,
         },
       },
     });
@@ -174,11 +206,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { data, error } = await supabase.auth.updateUser({
       data: {
         full_name: updates.name ?? user.name,
+        username: updates.username ?? user.username,
+        profile_photo: updates.profile_photo ?? user.profile_photo,
         sports: updates.sports ?? user.sports,
         region: updates.region ?? user.region,
+        locality: updates.locality ?? user.locality,
         dob: updates.dob ?? user.dob,
         gender: updates.gender ?? user.gender,
         level: updates.level ?? user.level,
+        elo: updates.elo ?? user.elo,
+        preferred_format: updates.preferred_format ?? user.preferred_format,
+        experience_years: updates.experience_years ?? user.experience_years,
+        available_days: updates.available_days ?? user.available_days,
+        time_slots: updates.time_slots ?? user.time_slots,
+        bio: updates.bio ?? user.bio,
+        achievements: updates.achievements ?? user.achievements,
       },
     });
 

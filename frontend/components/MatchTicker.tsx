@@ -9,6 +9,8 @@ interface MatchTickerProps {
 const MatchTicker: React.FC<MatchTickerProps> = ({ results }) => {
     const scrollRef = useRef<HTMLDivElement>(null);
 
+    if (!results || results.length === 0) return null;
+
     return (
         <div className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-white/10 py-3 z-50">
             <div className="max-w-7xl mx-auto px-4 flex items-center gap-4 overflow-hidden relative">
