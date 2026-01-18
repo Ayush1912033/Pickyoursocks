@@ -1,199 +1,244 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { SPORTS, FeedItem, MatchOpportunity } from '../constants';
-import { api } from '../services/api';
-import { Filter, MessageSquare, Heart, Clock, Loader2 } from 'lucide-react';
 import Navbar from '../components/Navbar';
 import UserProfileSidebar from '../components/UserProfileSidebar';
-import RadarFeed from '../components/RadarFeed';
 import ErrorState from '../components/ErrorState';
+import { SPORTS } from '../constants';
+import { supabase } from '../lib/supabase';
+import { Filter, MessageSquare, Heart, Clock } from 'lucide-react';
+
+/* ======================
+   Types
+====================== */
+interface FeedPost {
+  id: string;
+  caption: string;
+  media_url: string | null;
+  media_type: 'image' | 'video' | 'text';
+  sport: string;
+  created_at: string;
+  author: {
+    username: string;
+    profile_photo: string | null;
+  };
+}
 
 const Feed: React.FC = () => {
-    const { user } = useAuth();
-    const [activeFilter, setActiveFilter] = useState<string>('all');
+  const { user } = useAuth();
 
-    // Data States
-    const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
-    const [matchOpportunities, setMatchOpportunities] = useState<MatchOpportunity[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | string>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    // In a real app, these would also come from the API/Backend
-    const userElo = 1200;
-    const trend = "+ 12 this week";
-    const streak = 4;
-    const scoutViewCount = 2;
+  /* --------------------
+     Fetch Feed Posts
+  -------------------- */
+  const fetchFeed = async () => {
+    setIsLoading(true);
+    setError(null);
 
-    const fetchData = async () => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            // Parallel fetching for performance
-            const [feedData, radarData] = await Promise.all([
-                api.getFeed(),
-                api.getRadarMatches()
-            ]);
-            setFeedItems(feedData);
-            setMatchOpportunities(radarData);
-        } catch (error) {
-            console.error("Failed to fetch feed data:", error);
-            setError("Failed to load feed data.");
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    try {
+      const { data, error } = await supabase
+        .from('posts')
+        .select(`
+          id,
+          caption,
+          media_url,
+          media_type,
+          sport,
+          created_at,
+          author:profiles!posts_user_id_fkey (
+            username,
+            profile_photo
+          )
+        `)
+        .order('created_at', { ascending: false });
 
-    useEffect(() => {
-        fetchData();
-    }, []);
+      if (error) throw error;
 
-    const userSports = user?.sports || [];
+      const safeData: FeedPost[] =
+        data?.map((post: any) => ({
+          id: post.id,
+          caption: post.caption,
+          media_url: post.media_url,
+          media_type: post.media_type ?? 'text',
+          sport: post.sport,
+          created_at: post.created_at,
+          author: {
+            username: post.author?.username ?? 'unknown',
+            profile_photo: post.author?.profile_photo ?? null,
+          },
+        })) ?? [];
 
-    const filteredFeed = feedItems.filter(item => {
-        // Show only items relevant to user's selected sports
-        const isRelevantToUser = userSports.includes(item.sport);
-        // Apply granular filter (All vs Specific Sport)
-        const matchesActiveFilter = activeFilter === 'all' || item.sport === activeFilter;
-        return isRelevantToUser && matchesActiveFilter;
-    });
+      setPosts(safeData);
+    } catch (err) {
+      console.error('Feed error:', err);
+      setError('Failed to load feed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-    return (
-        <div className="min-h-screen bg-black text-white selection:bg-blue-600/30">
-            <Navbar />
+  useEffect(() => {
+    fetchFeed();
+  }, []);
 
-            <main className="pt-24 pb-20 px-4 md:px-8 max-w-7xl mx-auto animate-enter">
-                <div className="grid lg:grid-cols-12 gap-8 items-start">
-                    {/* Left Column: User Profile & Stats */}
-                    <div className="hidden lg:block lg:col-span-4 lg:sticky lg:top-24">
-                        <UserProfileSidebar
-                            elo={userElo}
-                            trend={trend}
-                            streak={streak}
-                            scoutViewCount={scoutViewCount}
-                        />
-                    </div>
+  if (!user) return null;
 
-                    {/* Right Column: Hybrid Feed */}
-                    <div className="lg:col-span-8 space-y-12">
+  const userSports = user.sports || [];
 
-                        {error ? (
-                            <ErrorState onRetry={fetchData} />
-                        ) : isLoading ? (
-                            // SKELETON LOADING STATE
-                            <div className="space-y-8 animate-pulse">
-                                {/* Radar Skeleton */}
-                                <div className="h-64 bg-zinc-900/50 rounded-2xl border border-white/5"></div>
-                                {/* Feed Item Skeleton 1 */}
-                                <div className="h-48 bg-zinc-900/30 rounded-2xl border border-white/5"></div>
-                                {/* Feed Item Skeleton 2 */}
-                                <div className="h-48 bg-zinc-900/30 rounded-2xl border border-white/5"></div>
-                            </div>
-                        ) : (
-                            <>
-                                {/* 1. The Radar (Utility - Top 50%) */}
-                                <section>
-                                    <RadarFeed
-                                        matches={matchOpportunities}
-                                        userElo={userElo}
-                                    />
-                                </section>
+  const filteredPosts = posts.filter(post => {
+    const relevantToUser = userSports.includes(post.sport);
+    const matchesFilter =
+      activeFilter === 'all' || post.sport === activeFilter;
+    return relevantToUser && matchesFilter;
+  });
 
-                                {/* 2. Thus Pulse (Social - Bottom 50%) */}
-                                <section>
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h3 className="text-xl font-black italic uppercase tracking-tighter">
-                                            The <span className="text-blue-600">Pulse</span>
-                                        </h3>
+  return (
+    <div className="min-h-screen bg-black text-white selection:bg-blue-600/30">
+      <Navbar />
 
-                                        {/* Mini Filter Bar */}
-                                        <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar max-w-[200px] md:max-w-none">
-                                            <button
-                                                onClick={() => setActiveFilter('all')}
-                                                className={`px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === 'all'
-                                                    ? 'bg-blue-600 text-white'
-                                                    : 'bg-zinc-900 text-gray-400 hover:bg-zinc-800'
-                                                    }`}
-                                            >
-                                                All
-                                            </button>
-                                            {userSports.map(sportId => {
-                                                const sportDetails = SPORTS.find(s => s.id === sportId);
-                                                if (!sportDetails) return null;
-                                                return (
-                                                    <button
-                                                        key={sportId}
-                                                        onClick={() => setActiveFilter(sportId)}
-                                                        className={`px-3 py-1 rounded-full font-bold text-[10px] uppercase tracking-wider whitespace-nowrap transition-all ${activeFilter === sportId
-                                                            ? 'bg-blue-600 text-white'
-                                                            : 'bg-zinc-900 text-gray-400 hover:bg-zinc-800'
-                                                            }`}
-                                                    >
-                                                        {sportDetails.name}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
+      <main className="pt-24 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
+        <div className="grid lg:grid-cols-12 gap-8 items-start">
 
-                                    <div className="space-y-6">
-                                        {filteredFeed.length > 0 ? (
-                                            filteredFeed.map(item => (
-                                                <div key={item.id} className="bg-zinc-900/30 border border-white/5 rounded-2xl overflow-hidden hover:border-white/10 transition-colors">
-                                                    {/* Header */}
-                                                    <div className="p-4 flex items-start justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <img src={item.authorImage} alt={item.author} className="w-8 h-8 rounded-full object-cover bg-zinc-800" />
-                                                            <div>
-                                                                <h4 className="font-bold text-sm text-white">{item.author}</h4>
-                                                                <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{SPORTS.find(s => s.id === item.sport)?.name}</span>
-                                                            </div>
-                                                        </div>
-                                                        <span className="text-[10px] text-gray-500 flex items-center gap-1">
-                                                            <Clock size={10} /> {item.time}
-                                                        </span>
-                                                    </div>
+          {/* LEFT SIDEBAR */}
+          <div className="hidden lg:block lg:col-span-4 sticky top-24">
+            <UserProfileSidebar
+              elo={user.elo ?? 1200}
+              trend="+12 this week"
+              streak={4}
+              scoutViewCount={2}
+            />
+          </div>
 
-                                                    {/* Content */}
-                                                    <div className="px-4 pb-4">
-                                                        <h3 className="text-lg font-bold italic mb-2 text-gray-200">{item.title}</h3>
-                                                        <p className="text-gray-400 text-sm leading-relaxed mb-4">{item.description}</p>
-                                                        {item.image && (
-                                                            <div className="rounded-lg overflow-hidden mb-4 h-48">
-                                                                <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
-                                                            </div>
-                                                        )}
+          {/* RIGHT FEED */}
+          <div className="lg:col-span-8 space-y-8">
 
-                                                        {/* Actions */}
-                                                        <div className="flex items-center gap-6 pt-3 border-t border-white/5 text-xs font-medium text-gray-500">
-                                                            <button className="flex items-center gap-2 hover:text-white transition-colors">
-                                                                <Heart size={14} /> {item.likes}
-                                                            </button>
-                                                            <button className="flex items-center gap-2 hover:text-white transition-colors">
-                                                                <MessageSquare size={14} /> {item.comments}
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="py-12 text-center border border-dashed border-white/10 rounded-2xl">
-                                                <div className="w-12 h-12 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-3">
-                                                    <Filter className="text-gray-600" size={16} />
-                                                </div>
-                                                <p className="text-gray-500 text-sm">
-                                                    No recent updates for your sports.
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </section>
-                            </>
-                        )}
-                    </div>
+            {error ? (
+              <ErrorState onRetry={fetchFeed} />
+            ) : isLoading ? (
+              <div className="space-y-6 animate-pulse">
+                <div className="h-56 bg-zinc-900/40 rounded-xl" />
+                <div className="h-56 bg-zinc-900/40 rounded-xl" />
+              </div>
+            ) : (
+              <>
+                {/* FILTER BAR */}
+                <div className="flex gap-2 overflow-x-auto pb-2 custom-scrollbar">
+                  <button
+                    onClick={() => setActiveFilter('all')}
+                    className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                      activeFilter === 'all'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-zinc-900 text-gray-400 hover:bg-zinc-800'
+                    }`}
+                  >
+                    All
+                  </button>
+
+                  {userSports.map(sportId => {
+                    const sportName = SPORTS.find(s => s.id === sportId)?.name;
+                    if (!sportName) return null;
+
+                    return (
+                      <button
+                        key={sportId}
+                        onClick={() => setActiveFilter(sportId)}
+                        className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                          activeFilter === sportId
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-zinc-900 text-gray-400 hover:bg-zinc-800'
+                        }`}
+                      >
+                        {sportName}
+                      </button>
+                    );
+                  })}
                 </div>
-            </main>
+
+                {/* POSTS */}
+                <div className="space-y-6">
+                  {filteredPosts.length === 0 ? (
+                    <div className="py-12 text-center border border-dashed border-white/10 rounded-2xl">
+                      <Filter className="mx-auto mb-2 text-gray-500" size={16} />
+                      <p className="text-gray-500 text-sm">
+                        No posts yet for your sports
+                      </p>
+                    </div>
+                  ) : (
+                    filteredPosts.map(post => (
+                      <div
+                        key={post.id}
+                        className="bg-zinc-900/40 border border-white/5 rounded-2xl overflow-hidden"
+                      >
+                        {/* HEADER */}
+                        <div className="p-4 flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={post.author.profile_photo || '/avatar.png'}
+                              alt="author"
+                              className="w-8 h-8 rounded-full bg-zinc-700 object-cover"
+                            />
+                            <div>
+                              <p className="font-bold text-sm">
+                                @{post.author.username}
+                              </p>
+                              <span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">
+                                {SPORTS.find(s => s.id === post.sport)?.name}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="text-[10px] text-gray-500 flex items-center gap-1">
+                            <Clock size={10} />
+                            {new Date(post.created_at).toLocaleDateString()}
+                          </span>
+                        </div>
+
+                        {/* CONTENT */}
+                        <div className="px-4 pb-4">
+                          <p className="text-gray-300 mb-3">{post.caption}</p>
+
+                          {post.media_url && (
+                            <div className="rounded-xl overflow-hidden mb-4">
+                              {post.media_type === 'image' ? (
+                                <img
+                                  src={post.media_url}
+                                  alt="post"
+                                  className="w-full max-h-[420px] object-cover"
+                                />
+                              ) : (
+                                <video
+                                  src={post.media_url}
+                                  controls
+                                  className="w-full max-h-[420px]"
+                                />
+                              )}
+                            </div>
+                          )}
+
+                          {/* ACTIONS */}
+                          <div className="flex gap-6 text-xs text-gray-500">
+                            <button className="flex items-center gap-2 hover:text-white">
+                              <Heart size={14} /> Like
+                            </button>
+                            <button className="flex items-center gap-2 hover:text-white">
+                              <MessageSquare size={14} /> Comment
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
         </div>
-    );
+      </main>
+    </div>
+  );
 };
 
 export default Feed;

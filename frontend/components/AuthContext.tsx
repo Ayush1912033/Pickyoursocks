@@ -11,25 +11,32 @@ import { supabase } from '../lib/supabase';
    Types
 ======================= */
 
-interface User {
+export interface User {
   id: string;
   email: string;
+
   name?: string;
   username?: string;
   profile_photo?: string;
+
   sports?: string[];
   region?: string;
   locality?: string;
+
   dob?: string;
   gender?: string;
+
   level?: string;
   elo?: number;
   preferred_format?: string;
   experience_years?: number;
+
   available_days?: string[];
   time_slots?: string[];
+
   bio?: string;
   achievements?: string[];
+
   connections?: number;
 }
 
@@ -38,10 +45,15 @@ interface AuthContextType {
   isLoading: boolean;
 
   login: (email: string, password: string) => Promise<void>;
-  signup: (userData: Omit<User, 'id'>, password: string) => Promise<void>;
+  signup: (
+    userData: Pick<User, 'email' | 'name' | 'sports'>,
+    password: string
+  ) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
+
   updateUser: (updates: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 /* =======================
@@ -59,124 +71,136 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   /* -----------------------
-     Map Supabase User
+     Fetch profile (SAFE)
   ----------------------- */
-  const mapSupabaseUser = (sbUser: any): User => ({
-    id: sbUser.id,
-    email: sbUser.email,
-    name: sbUser.user_metadata?.full_name,
-    username: sbUser.user_metadata?.username,
-    profile_photo: sbUser.user_metadata?.profile_photo,
-    sports: sbUser.user_metadata?.sports,
-    region: sbUser.user_metadata?.region,
-    locality: sbUser.user_metadata?.locality,
-    dob: sbUser.user_metadata?.dob,
-    gender: sbUser.user_metadata?.gender,
-    level: sbUser.user_metadata?.level,
-    elo: sbUser.user_metadata?.elo,
-    preferred_format: sbUser.user_metadata?.preferred_format,
-    experience_years: sbUser.user_metadata?.experience_years,
-    available_days: sbUser.user_metadata?.available_days,
-    time_slots: sbUser.user_metadata?.time_slots,
-    bio: sbUser.user_metadata?.bio,
-    achievements: sbUser.user_metadata?.achievements,
-    connections: sbUser.user_metadata?.connections,
-  });
+  const fetchProfile = async (userId: string) => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
 
-  /* -----------------------
-     Load Session on Start
-  ----------------------- */
-  /* -----------------------
-     Load Session on Start
-  ----------------------- */
-  useEffect(() => {
-    // If Supabase is not configured, stop loading and do nothing
-    if (!supabase) {
-      setIsLoading(false);
-      return;
+    if (error) {
+      console.warn('Profile fetch failed:', error.message);
+      return null;
     }
 
-    const initAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
+    return data;
+  };
 
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
+  /* -----------------------
+     Init Auth
+  ----------------------- */
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+
+        if (data?.session?.user && mounted) {
+          const sbUser = data.session.user;
+          const profile = await fetchProfile(sbUser.id);
+
+          if (profile) {
+            setUser({
+              ...profile,
+              id: sbUser.id,
+              email: sbUser.email!,
+            });
+          } else {
+            // fallback (should rarely happen)
+            setUser({
+              id: sbUser.id,
+              email: sbUser.email!,
+              elo: 1200,
+            });
+          }
+        }
+      } catch (err) {
+        console.error('AUTH INIT ERROR', err);
+      } finally {
+        if (mounted) setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
-    initAuth();
+    init();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setUser(mapSupabaseUser(session.user));
-      } else {
-        setUser(null);
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (!mounted) return;
+
+        if (session?.user) {
+          const sbUser = session.user;
+          const profile = await fetchProfile(sbUser.id);
+
+          if (profile) {
+            setUser({
+              ...profile,
+              id: sbUser.id,
+              email: sbUser.email!,
+            });
+          } else {
+            setUser({
+              id: sbUser.id,
+              email: sbUser.email!,
+              elo: 1200,
+            });
+          }
+        } else {
+          setUser(null);
+        }
       }
-    });
+    );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   /* -----------------------
      Email Login
   ----------------------- */
   const login = async (email: string, password: string) => {
-    if (!supabase) throw new Error("Supabase is not configured");
-    setIsLoading(true);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    setIsLoading(false);
     if (error) throw error;
   };
 
   /* -----------------------
      Signup
   ----------------------- */
-  const signup = async (userData: Omit<User, 'id'>, password: string) => {
-    if (!supabase) throw new Error("Supabase is not configured");
-    setIsLoading(true);
-
-    const { error } = await supabase.auth.signUp({
+  const signup = async (
+    userData: Pick<User, 'email' | 'name' | 'sports'>,
+    password: string
+  ) => {
+    const { data, error } = await supabase.auth.signUp({
       email: userData.email,
       password,
       options: {
-        data: {
-          full_name: userData.name,
-          username: userData.username,
-          profile_photo: userData.profile_photo,
-          sports: userData.sports,
-          region: userData.region,
-          locality: userData.locality,
-          dob: userData.dob,
-          gender: userData.gender,
-          level: userData.level,
-          elo: userData.elo,
-          preferred_format: userData.preferred_format,
-          experience_years: userData.experience_years,
-          available_days: userData.available_days,
-          time_slots: userData.time_slots,
-          bio: userData.bio,
-          achievements: userData.achievements,
-        },
+        data: { name: userData.name },
       },
     });
 
-    setIsLoading(false);
     if (error) throw error;
+
+    if (data.user) {
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        name: userData.name,
+        sports: userData.sports ?? [],
+        elo: 1200,
+      });
+    }
   };
 
   /* -----------------------
      Google OAuth
   ----------------------- */
   const loginWithGoogle = async () => {
-    if (!supabase) throw new Error("Supabase is not configured");
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -190,51 +214,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Logout
   ----------------------- */
   const logout = async () => {
-    if (!supabase) return;
-    setIsLoading(true);
     await supabase.auth.signOut();
     setUser(null);
-    setIsLoading(false);
   };
 
   /* -----------------------
-     Update User Profile
+     Update Profile
   ----------------------- */
   const updateUser = async (updates: Partial<User>) => {
-    if (!user || !supabase) return;
+    if (!user) return;
 
-    const { data, error } = await supabase.auth.updateUser({
-      data: {
-        full_name: updates.name ?? user.name,
-        username: updates.username ?? user.username,
-        profile_photo: updates.profile_photo ?? user.profile_photo,
-        sports: updates.sports ?? user.sports,
-        region: updates.region ?? user.region,
-        locality: updates.locality ?? user.locality,
-        dob: updates.dob ?? user.dob,
-        gender: updates.gender ?? user.gender,
-        level: updates.level ?? user.level,
-        elo: updates.elo ?? user.elo,
-        preferred_format: updates.preferred_format ?? user.preferred_format,
-        experience_years: updates.experience_years ?? user.experience_years,
-        available_days: updates.available_days ?? user.available_days,
-        time_slots: updates.time_slots ?? user.time_slots,
-        bio: updates.bio ?? user.bio,
-        achievements: updates.achievements ?? user.achievements,
-      },
-    });
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id);
 
     if (error) throw error;
 
-    // Immediately update local state
-    if (data.user) {
-      setUser(mapSupabaseUser(data.user));
-    }
+    setUser(prev => (prev ? { ...prev, ...updates } : prev));
   };
 
   /* -----------------------
-     Provider Value
+     Refresh Profile
   ----------------------- */
+  const refreshProfile = async () => {
+    if (!user) return;
+    const profile = await fetchProfile(user.id);
+    if (profile) {
+      setUser(prev => (prev ? { ...prev, ...profile } : prev));
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -245,6 +258,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         loginWithGoogle,
         logout,
         updateUser,
+        refreshProfile,
       }}
     >
       {children}

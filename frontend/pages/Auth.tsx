@@ -196,7 +196,7 @@ const Auth: React.FC = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
-            </div>
+            
 
             {/* Sports Dropdown (unchanged) */}
             {/* YOUR EXISTING SPORTS CODE REMAINS AS IS */}

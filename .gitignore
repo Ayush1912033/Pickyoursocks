@@ -9,3 +9,4 @@ coverage
 # Environment variables
 frontend/.env
 frontend/.env.*
+Backend/.env.*
