@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
+import { SPORTS } from '../constants';
 import { User as UserIcon } from 'lucide-react';
 
 const Auth: React.FC = () => {
@@ -57,13 +58,13 @@ const Auth: React.FC = () => {
      Signup
   -------------------- */
   const handleSignup = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError('');
+    e.preventDefault();
+    setError('');
 
-  if (!name || !email || !password) {
-    setError('Please fill in all fields');
-    return;
-  }
+    if (!name || !email || !password) {
+      setError('Please fill in all fields');
+      return;
+    }
 
     if (selectedSports.length === 0) {
       setError('Please select at least one sport');
@@ -189,17 +190,73 @@ const Auth: React.FC = () => {
               onChange={(e) => setEmail(e.target.value)}
             />
 
-              <input
-                type="password"
-                placeholder="Password (min 8 chars)"
-                className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 focus:border-blue-500"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            
+            <input
+              type="password"
+              placeholder="Password (min 8 chars)"
+              className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 focus:border-blue-500"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
 
             {/* Sports Dropdown (unchanged) */}
-            {/* YOUR EXISTING SPORTS CODE REMAINS AS IS */}
+            {/* Sports Selection */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsSportsDropdownOpen(!isSportsDropdownOpen)}
+                className="w-full px-5 py-4 rounded-xl bg-black/50 border border-white/10 text-left flex items-center justify-between hover:border-blue-500 transition-colors"
+              >
+                <span className={selectedSports.length === 0 ? 'text-gray-500' : 'text-white'}>
+                  {selectedSports.length === 0
+                    ? 'Select Sports (Max 3)'
+                    : `${selectedSports.length} selected`}
+                </span>
+                <span className="text-gray-500">▼</span>
+              </button>
+
+              {isSportsDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-zinc-900 border border-white/10 rounded-xl p-2 z-50 max-h-60 overflow-y-auto shadow-2xl">
+                  {SPORTS.map((sport) => (
+                    <button
+                      key={sport.id}
+                      type="button"
+                      onClick={() => toggleSport(sport.id)}
+                      className={`w-full text-left px-4 py-3 rounded-lg mb-1 flex items-center justify-between transition-colors ${selectedSports.includes(sport.id)
+                        ? 'bg-blue-600 text-white'
+                        : 'text-gray-300 hover:bg-white/5'
+                        }`}
+                    >
+                      <span className="font-bold uppercase text-sm tracking-wider">
+                        {sport.name}
+                      </span>
+                      {selectedSports.includes(sport.id) && <span>✓</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Selected Tags */}
+            {selectedSports.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {selectedSports.map((id) => (
+                  <span
+                    key={id}
+                    className="bg-blue-600/20 text-blue-400 border border-blue-600/30 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-2"
+                  >
+                    {SPORTS.find((s) => s.id === id)?.name}
+                    <button
+                      type="button"
+                      onClick={() => toggleSport(id)}
+                      className="hover:text-white"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
 
             <button
               disabled={isLoading}
