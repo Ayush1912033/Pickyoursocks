@@ -71,91 +71,124 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [isLoading, setIsLoading] = useState(true);
 
   /* -----------------------
-     Fetch profile (SAFE)
+     Fetch profile (WITH TIMEOUT)
   ----------------------- */
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+  const fetchProfileSafe = async (userId: string) => {
+    try {
+      // Set a 5 second timeout for profile fetch
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+      );
 
-    if (error) {
-      console.warn('Profile fetch failed:', error.message);
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const { data, error } = await Promise.race([
+        fetchPromise,
+        timeoutPromise,
+      ]) as any;
+
+      if (error) {
+        console.warn('PROFILE FETCH ERROR:', error.message);
+        return null;
+      }
+
+      return data;
+    } catch (err) {
+      console.warn('PROFILE FETCH FAILED (using defaults):', err);
       return null;
     }
-
-    return data;
   };
 
   /* -----------------------
-     Init Auth
+     Init Auth (REFRESH SAFE)
   ----------------------- */
   useEffect(() => {
     let mounted = true;
 
     const init = async () => {
+      console.log('AUTH INIT START');
+
       try {
-        const { data } = await supabase.auth.getSession();
+        // Add timeout to getSession
+        const sessionPromise = supabase.auth.getSession();
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('getSession timeout')), 8000)
+        );
 
-        if (data?.session?.user && mounted) {
-          const sbUser = data.session.user;
-          const profile = await fetchProfile(sbUser.id);
+        const {
+          data: { session },
+        } = await Promise.race([sessionPromise, timeoutPromise]) as any;
 
-          if (profile) {
+        if (!mounted) return;
+
+        if (session?.user) {
+          const sbUser = session.user;
+          console.log('SESSION FOUND:', sbUser.id);
+
+          // ⚡ profile is optional — never block auth
+          const profile = await fetchProfileSafe(sbUser.id);
+          console.log('PROFILE LOADED:', profile ? 'yes' : 'no');
+
+          if (mounted) {
             setUser({
-              ...profile,
               id: sbUser.id,
               email: sbUser.email!,
+              ...(profile || { elo: 1200 }),
             });
-          } else {
-            // fallback (should rarely happen)
-            setUser({
-              id: sbUser.id,
-              email: sbUser.email!,
-              elo: 1200,
-            });
+          }
+        } else {
+          console.log('NO SESSION FOUND');
+          if (mounted) {
+            setUser(null);
           }
         }
       } catch (err) {
-        console.error('AUTH INIT ERROR', err);
+        console.error('AUTH INIT FAILED:', err);
+        if (mounted) {
+          setUser(null);
+        }
       } finally {
-        if (mounted) setIsLoading(false);
+        if (mounted) {
+          console.log('AUTH INIT DONE - LOADING FALSE');
+          setIsLoading(false);
+        }
       }
     };
 
     init();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        if (!mounted) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('AUTH EVENT:', _event);
 
-        if (session?.user) {
-          const sbUser = session.user;
-          const profile = await fetchProfile(sbUser.id);
+      if (!mounted) return;
 
-          if (profile) {
-            setUser({
-              ...profile,
-              id: sbUser.id,
-              email: sbUser.email!,
-            });
-          } else {
-            setUser({
-              id: sbUser.id,
-              email: sbUser.email!,
-              elo: 1200,
-            });
-          }
-        } else {
-          setUser(null);
+      if (session?.user) {
+        const sbUser = session.user;
+        const profile = await fetchProfileSafe(sbUser.id);
+
+        if (mounted) {
+          setUser({
+            id: sbUser.id,
+            email: sbUser.email!,
+            ...(profile || { elo: 1200 }),
+          });
         }
+      } else {
+        if (mounted) setUser(null);
       }
-    );
+
+      setIsLoading(false);
+    });
 
     return () => {
       mounted = false;
-      listener.subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -242,7 +275,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   ----------------------- */
   const refreshProfile = async () => {
     if (!user) return;
-    const profile = await fetchProfile(user.id);
+
+    const profile = await fetchProfileSafe(user.id);
+
     if (profile) {
       setUser(prev => (prev ? { ...prev, ...profile } : prev));
     }
