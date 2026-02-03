@@ -1,5 +1,6 @@
+```javascript
 import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 import { Camera } from 'lucide-react';
 
 import { useAuth } from '../components/AuthContext';
@@ -9,15 +10,46 @@ import { supabase } from '../lib/supabase';
 import { uploadProfilePhoto } from '../lib/r2';
 
 const Profile: React.FC = () => {
-  const { user, updateUser } = useAuth();
+  const { user: currentUser, updateUser } = useAuth();
+  const { userId } = useParams();
+
+  const [profileUser, setProfileUser] = useState<any>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  
+  const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
+  
+  // If no userId param, show current user. If userId param, fetch that user.
+  useEffect(() => {
+    if (isOwnProfile) {
+      setProfileUser(currentUser);
+      setIsLoadingProfile(false);
+    } else {
+      setIsLoadingProfile(true);
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+        .then(({ data, error }) => {
+          if (data) {
+             setProfileUser(data);
+          } else {
+             console.error("Error fetching profile:", error);
+          }
+          setIsLoadingProfile(false);
+        });
+    }
+  }, [userId, currentUser, isOwnProfile]);
+
 
   const [posts, setPosts] = useState<any[]>([]);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
   /* =========================
      FORM STATE
   ========================= */
+  const [isEditing, setIsEditing] = useState(false); // NEW: Inline editing state
+
   const [username, setUsername] = useState('');
   const [bio, setBio] = useState('');
   const [level, setLevel] = useState('');
@@ -32,86 +64,99 @@ const Profile: React.FC = () => {
      LOAD POSTS
   ========================= */
   useEffect(() => {
-    if (!user?.id) return;
+    const targetUserId = profileUser?.id;
+    if (!targetUserId) return;
 
     supabase
       .from('posts')
       .select('id, media_url, media_type')
-      .eq('user_id', user.id)
+      .eq('user_id', targetUserId)
       .order('created_at', { ascending: false })
       .then(({ data }) => setPosts(data || []));
-  }, [user?.id]);
+  }, [profileUser?.id]);
 
   /* =========================
      SYNC USER → FORM
   ========================= */
+  const syncFormWithUser = () => {
+    if (!profileUser) return;
+    setUsername(profileUser.username || '');
+    setBio(profileUser.bio || '');
+    setLevel(profileUser.level || '');
+    setPreferredFormat(profileUser.preferred_format || 'Singles');
+    setExperience(profileUser.experience_years || 0);
+    setAvailableDays((profileUser.available_days || []).join(', '));
+    setTimeSlots((profileUser.time_slots || []).join(', '));
+    setAchievements((profileUser.achievements || []).join('\n'));
+    setRegion(profileUser.region || '');
+  };
+
   useEffect(() => {
-    if (!user) return;
+    syncFormWithUser();
+  }, [profileUser]);
 
-    setUsername(user.username || '');
-    setBio(user.bio || '');
-    setLevel(user.level || '');
-    setPreferredFormat(user.preferred_format || 'Singles');
-    setExperience(user.experience_years || 0);
-    setAvailableDays((user.available_days || []).join(', '));
-    setTimeSlots((user.time_slots || []).join(', '));
-    setAchievements((user.achievements || []).join('\n'));
-    setRegion(user.region || '');
-  }, [user]);
-
-  if (!user) return <Navigate to="/auth" replace />;
+  if (!currentUser && !userId) return <Navigate to="/auth" replace />;
+  if (isLoadingProfile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
+  if (!profileUser && !isLoadingProfile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">User not found</div>;
 
   /* =========================
      SAVE PROFILE
   ========================= */
   const handleSave = async () => {
-  if (!username.trim()) {
-    alert('Username is required');
-    return;
-  }
+    if (!username.trim()) {
+      alert('Username is required');
+      return;
+    }
 
-  try {
-    await updateUser({
-      username: username.trim(),
-      bio,
-      level,
-      preferred_format: preferredFormat,
-      experience_years: experience,
-      available_days: availableDays
-        .split(',')
-        .map(d => d.trim())
-        .filter(Boolean),
-      time_slots: timeSlots
-        .split(',')
-        .map(t => t.trim())
-        .filter(Boolean),
-      achievements: achievements
-        .split('\n')
-        .map(a => a.trim())
-        .filter(Boolean),
-      region,
-    });
+    try {
+      await updateUser({
+        username: username.trim(),
+        bio,
+        level,
+        preferred_format: preferredFormat,
+        experience_years: experience,
+        available_days: availableDays
+          .split(',')
+          .map(d => d.trim())
+          .filter(Boolean),
+        time_slots: timeSlots
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean),
+        achievements: achievements
+          .split('\n')
+          .map(a => a.trim())
+          .filter(Boolean),
+        region,
+      });
 
-    alert('Profile updated successfully');
-    setIsEditModalOpen(false);
-  } catch (err: any) {
-    console.error('SAVE ERROR:', err);
-    alert(err.message || 'Failed to save profile');
-  }
-};
+      alert('Profile updated successfully');
+      setIsEditing(false); // Exit edit mode
+    } catch (err: any) {
+      console.error('SAVE ERROR:', err);
+      alert(err.message || 'Failed to save profile');
+    }
+  };
+
+  const handleCancel = () => {
+    syncFormWithUser(); // Revert changes
+    setIsEditing(false);
+  };
 
 
   /* =========================
      PROFILE PHOTO UPLOAD
   ========================= */
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !user) return;
+    // Only allow if it's the current user
+    if (!e.target.files || !currentUser || !isOwnProfile) return;
 
     setIsUploading(true);
     try {
       const file = e.target.files[0];
-      const url = await uploadProfilePhoto(file, user.id);
+      const url = await uploadProfilePhoto(file, currentUser.id);
       await updateUser({ profile_photo: url });
+      // Update local state is handled by auth context usually, but if we are viewing "profileUser" which is set to "currentUser", it should update via useEffect dependency on "currentUser"
     } catch (err) {
       alert('Photo upload failed');
     } finally {
@@ -119,120 +164,211 @@ const Profile: React.FC = () => {
     }
   };
 
+  // Helper to render label + value/input
+  const RenderField = ({ label, value, onChange, placeholder, isTextArea = false }: any) => (
+    <div>
+      <span className="text-gray-400 block text-sm mb-1">{label}:</span>
+      {isEditing ? (
+        isTextArea ? (
+          <textarea
+            className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={3}
+          />
+        ) : (
+          <input
+            className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+          />
+        )
+      ) : (
+          <p className="font-medium">{value || <span className="text-gray-600 italic">Not set</span>}</p>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
       <Navbar />
 
-      <main className="flex-grow pt-32 pb-20 px-6 max-w-4xl mx-auto">
+      <main className="flex-grow pt-32 pb-20 px-6 max-w-4xl mx-auto w-full">
         {/* ================= HEADER ================= */}
         <div className="flex flex-col items-center mb-12 text-center">
           <div className="relative">
             <img
-              src={user.profile_photo || '/avatar-placeholder.png'}
+              src={profileUser.profile_photo || '/avatar-placeholder.png'}
               className="w-40 h-40 rounded-full object-cover border-4 border-blue-600"
             />
-            <label className="absolute bottom-2 right-2 bg-blue-600 p-2 rounded-full cursor-pointer">
-              <Camera size={16} />
-              <input type="file" hidden onChange={handlePhotoChange} />
-            </label>
+            {isOwnProfile && (
+              <label className="absolute bottom-2 right-2 bg-blue-600 p-2 rounded-full cursor-pointer hover:bg-blue-500 transition">
+                <Camera size={16} />
+                <input type="file" hidden onChange={handlePhotoChange} />
+              </label>
+            )}
           </div>
 
-          <h1 className="text-3xl font-bold mt-4">{user.name}</h1>
-          <p className="text-gray-400">@{user.username}</p>
-          {user.bio && <p className="mt-3 max-w-md">{user.bio}</p>}
+          <h1 className="text-3xl font-bold mt-4">{profileUser.name}</h1>
+          <p className="text-gray-400">@{profileUser.username}</p>
+          {profileUser.bio && <p className="mt-3 max-w-md text-gray-300">{profileUser.bio}</p>}
         </div>
 
         {/* ================= STATS ================= */}
         <div className="grid grid-cols-3 gap-4 mb-12">
           <div className="bg-zinc-900 p-6 rounded-xl text-center">
-            <p className="text-gray-500">ELO</p>
-            <p className="text-3xl font-bold">{user.elo ?? 1200}</p>
+            <p className="text-gray-500 text-sm uppercase tracking-wider">ELO</p>
+            <p className="text-3xl font-black italic">{profileUser.elo ?? 1200}</p>
           </div>
           <div className="bg-zinc-900 p-6 rounded-xl text-center">
-            <p className="text-gray-500">Experience</p>
-            <p className="text-3xl font-bold">{user.experience_years ?? 0} yrs</p>
+            <p className="text-gray-500 text-sm uppercase tracking-wider">Exp</p>
+            <p className="text-3xl font-black italic">{profileUser.experience_years ?? 0}<span className="text-base not-italic text-gray-500 ml-1">yrs</span></p>
           </div>
           <div className="bg-zinc-900 p-6 rounded-xl text-center">
-            <p className="text-gray-500">Posts</p>
-            <p className="text-3xl font-bold">{posts.length}</p>
+            <p className="text-gray-500 text-sm uppercase tracking-wider">Posts</p>
+            <p className="text-3xl font-black italic">{posts.length}</p>
           </div>
         </div>
 
-        {/* ================= DETAILS ================= */}
-        <div className="bg-zinc-900 rounded-2xl p-6 space-y-3 mb-12">
-          <h2 className="text-xl font-bold mb-2">Profile Details</h2>
-
-          <p><span className="text-gray-400">Sport(s):</span> {user.sports?.join(', ') || 'Not set'}</p>
-          <p><span className="text-gray-400">Skill Level:</span> {user.level || 'Not set'}</p>
-          <p><span className="text-gray-400">Preferred Format:</span> {user.preferred_format || 'Not set'}</p>
-          <p><span className="text-gray-400">Location:</span> {user.region || 'Not set'}</p>
-          <p><span className="text-gray-400">Available Days:</span> {user.available_days?.join(', ') || 'Not set'}</p>
-          <p><span className="text-gray-400">Time Slots:</span> {user.time_slots?.join(', ') || 'Not set'}</p>
-
-          <div>
-            <p className="text-gray-400">Achievements:</p>
-            {user.achievements?.length ? (
-              <ul className="list-disc list-inside text-sm">
-                {user.achievements.map((a, i) => (
-                  <li key={i}>{a}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm">None added</p>
+        {/* ================= DETAILS (EDITABLE) ================= */}
+        <div className="bg-zinc-900 rounded-3xl p-8 space-y-6 mb-12 border border-white/5 relative">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-black italic uppercase tracking-tighter">Profile Details</h2>
+            {isOwnProfile && !isEditing && (
+              <button
+                onClick={() => setIsEditing(true)}
+                className="text-sm font-bold uppercase tracking-widest text-blue-500 hover:text-blue-400 border border-blue-500/30 px-4 py-2 rounded-full hover:bg-blue-500/10 transition"
+              >
+                Edit Details
+              </button>
             )}
           </div>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* Fields */}
+            <div>
+              <span className="text-gray-400 block text-sm mb-1">Username:</span>
+              {isEditing ? (
+                <input
+                  className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              ) : (
+                <p className="font-medium">@{username}</p>
+              )}
+            </div>
+
+            <div>
+              <span className="text-gray-400 block text-sm mb-1">Location:</span>
+              {isEditing ? (
+                <input
+                  className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+                  value={region}
+                  onChange={(e) => setRegion(e.target.value)}
+                />
+              ) : (
+                <p className="font-medium">{region || 'Not set'}</p>
+              )}
+            </div>
+
+            <RenderField label="Skill Level" value={level} onChange={setLevel} placeholder="e.g. Intermediate" />
+            <RenderField label="Preferred Format" value={preferredFormat} onChange={setPreferredFormat} placeholder="e.g. Singles, Doubles" />
+
+            <div>
+              <span className="text-gray-400 block text-sm mb-1">Experience (Years):</span>
+              {isEditing ? (
+                <input
+                  type="number"
+                  className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+                  value={experience}
+                  onChange={(e) => setExperience(Number(e.target.value))}
+                />
+              ) : (
+                <p className="font-medium">{experience} years</p>
+              )}
+            </div>
+
+            <RenderField label="Available Days" value={availableDays} onChange={setAvailableDays} placeholder="e.g. Mon, Wed, Sat" />
+            <RenderField label="Time Slots" value={timeSlots} onChange={setTimeSlots} placeholder="e.g. 6-8 PM" />
+          </div>
+
+          <div className="md:col-span-2">
+            <span className="text-gray-400 block text-sm mb-1">Bio:</span>
+            {isEditing ? (
+              <textarea
+                className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                rows={3}
+              />
+            ) : (
+              <p className="text-gray-300 leading-relaxed whitespace-pre-wrap">{bio || <span className="text-gray-600 italic">No bio added</span>}</p>
+            )}
+          </div>
+
+          <div className="md:col-span-2">
+            <span className="text-gray-400 block text-sm mb-1">Achievements:</span>
+            {isEditing ? (
+              <textarea
+                className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+                value={achievements}
+                onChange={(e) => setAchievements(e.target.value)}
+                rows={4}
+                placeholder="List achievements, one per line"
+              />
+            ) : (
+              achievements ? (
+                <ul className="list-disc list-inside text-sm text-gray-300 space-y-1">
+                  {achievements.split('\n').filter(Boolean).map((a, i) => <li key={i}>{a}</li>)}
+                </ul>
+              ) : <span className="text-gray-600 italic">None added</span>
+            )}
+          </div>
+
+          {/* Action Buttons */}
+          {isEditing && (
+            <div className="flex justify-end gap-4 pt-6 mt-6 border-t border-white/10">
+              <button
+                onClick={handleCancel}
+                className="px-6 py-2 rounded-lg font-bold text-gray-400 hover:text-white hover:bg-white/5 transition"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                className="px-8 py-2 bg-blue-600 rounded-lg font-bold text-white uppercase tracking-widest hover:bg-blue-500 shadow-lg shadow-blue-600/20 transition"
+              >
+                Save Changes
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ================= POSTS ================= */}
-        <h2 className="text-2xl font-bold mb-4">Posts</h2>
-        <div className="grid grid-cols-3 gap-4">
-          {posts.map(post => (
-            <div key={post.id} className="aspect-square rounded-xl overflow-hidden">
-              {post.media_type === 'image' ? (
-                <img src={post.media_url} className="w-full h-full object-cover" />
-              ) : (
-                <video src={post.media_url} controls className="w-full h-full object-cover" />
-              )}
-            </div>
-          ))}
-        </div>
-
-        {/* ================= EDIT BUTTON ================= */}
-        <div className="mt-12 text-center">
-          <button
-            onClick={() => setIsEditModalOpen(true)}
-            className="bg-white text-black px-8 py-3 rounded-xl font-bold"
-          >
-            Edit Profile
-          </button>
-        </div>
+        <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Posts</h2>
+        {posts.length > 0 ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {posts.map(post => (
+              <div key={post.id} className="aspect-square rounded-2xl overflow-hidden border border-white/5 bg-zinc-900">
+                {post.media_type === 'image' ? (
+                  <img src={post.media_url} className="w-full h-full object-cover hover:scale-105 transition duration-500" />
+                ) : (
+                  <video src={post.media_url} controls className="w-full h-full object-cover" />
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
+            <p className="text-gray-500">No posts yet</p>
+          </div>
+        )}
       </main>
 
       <Footer />
-
-      {/* ================= EDIT MODAL ================= */}
-      {isEditModalOpen && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50">
-          <div className="bg-zinc-900 w-full max-w-lg rounded-2xl p-6 space-y-3">
-            <h2 className="text-xl font-bold mb-2">Edit Profile</h2>
-
-            <input className="w-full p-2 bg-black rounded" placeholder="Username" value={username} onChange={e => setUsername(e.target.value)} />
-            <textarea className="w-full p-2 bg-black rounded" placeholder="Bio" value={bio} onChange={e => setBio(e.target.value)} />
-            <input className="w-full p-2 bg-black rounded" placeholder="Skill Level" value={level} onChange={e => setLevel(e.target.value)} />
-            <input className="w-full p-2 bg-black rounded" placeholder="Preferred Format" value={preferredFormat} onChange={e => setPreferredFormat(e.target.value)} />
-            <input className="w-full p-2 bg-black rounded" type="number" placeholder="Experience (years)" value={experience} onChange={e => setExperience(Number(e.target.value))} />
-            <input className="w-full p-2 bg-black rounded" placeholder="Available days (comma separated)" value={availableDays} onChange={e => setAvailableDays(e.target.value)} />
-            <input className="w-full p-2 bg-black rounded" placeholder="Time slots (comma separated)" value={timeSlots} onChange={e => setTimeSlots(e.target.value)} />
-            <input className="w-full p-2 bg-black rounded" placeholder="Location" value={region} onChange={e => setRegion(e.target.value)} />
-            <textarea className="w-full p-2 bg-black rounded" placeholder="Achievements (one per line)" value={achievements} onChange={e => setAchievements(e.target.value)} />
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button onClick={() => setIsEditModalOpen(false)} className="px-4 py-2 bg-zinc-700 rounded">Cancel</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-blue-600 rounded">Save</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
