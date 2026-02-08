@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapPin, Target, Users, Radio, Clock } from 'lucide-react';
 import { MatchOpportunity } from '../constants';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import MatchResultModal from './MatchResultModal';
 
 interface RadarFeedProps {
     matches: MatchOpportunity[];
@@ -11,6 +12,8 @@ interface RadarFeedProps {
 }
 
 const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
+    const [selectedMatch, setSelectedMatch] = useState<MatchOpportunity | null>(null);
+    const [resultType, setResultType] = useState<'win' | 'loss' | null>(null);
 
     const handleAccept = async (matchId: string) => {
         if (!user) return;
@@ -24,9 +27,6 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                 .eq('id', matchId);
 
             if (error) throw error;
-            // Force reload or optimistically update? 
-            // Ideally Radar parent should reload, but for now we can rely on real-time or page refresh.
-            // Let's trigger a window reload or alert for now since we don't have a callback refetch passed down.
             window.location.reload();
         } catch (err) {
             console.error('Accept failed:', err);
@@ -34,26 +34,75 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
         }
     };
 
-    const handleResult = async (matchId: string, result: 'win' | 'loss', score: string) => {
-        // This would insert into match_results. For MVP/prototype, just an alert.
-        if (!score.trim()) {
-            alert('Please enter the score first!');
-            return;
-        }
-        alert(`Reporting ${result.toUpperCase()} with score: ${score}`);
+    const initiateReport = (match: MatchOpportunity, type: 'win' | 'loss') => {
+        setSelectedMatch(match);
+        setResultType(type);
+    };
 
-        // TODO: Insert into match_results table
-        /*
-        await supabase.from('match_results').insert({
-            match_id: matchId, // we need match_id in schema? or just player IDs. 
-            // Schema has player1_id, player2_id... we need to look those up from the match object or context.
-            // For now, let's keep it simple.
-        });
-        */
+    const handleSubmitResult = async (score: string) => {
+        if (!selectedMatch || !resultType || !user) return;
+
+        try {
+            // Determine winner/loser based on reporting user and result type
+            const isReporterCreator = selectedMatch.user_id === user.id;
+            const reporterWon = resultType === 'win';
+
+            // If reporter is creator:
+            //   - Win: Winner = Creator (User), Loser = Acceptor
+            //   - Loss: Winner = Acceptor, Loser = Creator (User)
+            // If reporter is acceptor:
+            //   - Win: Winner = Acceptor (User), Loser = Creator
+            //   - Loss: Winner = Creator, Loser = Acceptor (User)
+
+            // To simplify logic:
+            let winnerId, loserId;
+
+            if (reporterWon) {
+                winnerId = user.id;
+                loserId = isReporterCreator ? selectedMatch.accepted_by : selectedMatch.user_id;
+            } else {
+                winnerId = isReporterCreator ? selectedMatch.accepted_by : selectedMatch.user_id;
+                loserId = user.id;
+            }
+
+            const { error } = await supabase.from('match_results').insert({
+                sport: selectedMatch.sport,
+                score: score,
+                player1_id: selectedMatch.user_id, // Always keep original roles
+                player2_id: selectedMatch.accepted_by,
+                winner_id: winnerId,
+                // We'll verify later, for now trust the reporter
+                is_verified: true,
+                played_at: new Date().toISOString()
+            });
+
+            if (error) throw error;
+
+            // Also expire the request so it falls off radar (or archive it)
+            // Ideally we delete or move to 'completed' status
+            await supabase
+                .from('match_requests')
+                .update({ status: 'completed' })
+                .eq('id', selectedMatch.id);
+
+            window.location.reload();
+
+        } catch (err: any) {
+            console.error('Result submit failed:', err);
+            alert('Failed to save result: ' + err.message);
+        }
     };
 
     return (
         <div className="space-y-6 pb-24">
+            <MatchResultModal
+                isOpen={!!selectedMatch}
+                onClose={() => { setSelectedMatch(null); setResultType(null); }}
+                onSubmit={handleSubmitResult}
+                resultType={resultType}
+                opponentName={selectedMatch?.title.split(' - ')[0] || 'Opponent'}
+            />
+
             <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                     <Target className="text-blue-500" />
@@ -117,19 +166,13 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                                                     <div className="flex gap-2">
                                                         <button
                                                             className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500 hover:text-white transition-all font-bold uppercase text-xs"
-                                                            onClick={() => {
-                                                                const score = prompt('Enter Score (e.g. 21-19, 21-15):');
-                                                                if (score) handleResult(match.id, 'win', score);
-                                                            }}
+                                                            onClick={() => initiateReport(match, 'win')}
                                                         >
                                                             WIN
                                                         </button>
                                                         <button
                                                             className="flex-1 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500 hover:text-white transition-all font-bold uppercase text-xs"
-                                                            onClick={() => {
-                                                                const score = prompt('Enter Score (e.g. 19-21, 15-21):');
-                                                                if (score) handleResult(match.id, 'loss', score);
-                                                            }}
+                                                            onClick={() => initiateReport(match, 'loss')}
                                                         >
                                                             LOSS
                                                         </button>
