@@ -33,9 +33,7 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, userElo = 1200 }) => {
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-3">
-                                            <span className="px-3 py-1 bg-zinc-800 rounded-full text-xs font-bold uppercase tracking-wider text-blue-400">
-                                                {match.sport}
-                                            </span>
+
                                             <span className="flex items-center gap-1 text-xs font-medium text-gray-500 uppercase tracking-wide">
                                                 <MapPin size={12} /> {match.distance}
                                             </span>
@@ -53,7 +51,7 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, userElo = 1200 }) => {
                                     </div>
 
                                     <button className="px-8 py-3 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-blue-500 hover:text-white transition-all transform hover:scale-105 shadow-lg shadow-white/10 hover:shadow-blue-500/20">
-                                        Challenge
+                                        ACCEPT
                                     </button>
                                 </div>
                             </div>

@@ -90,21 +90,11 @@ const Feed: React.FC = () => {
     <div className="min-h-screen bg-black text-white">
       <Navbar />
 
-      <main className="pt-24 pb-20 px-4 md:px-8 max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-12 gap-8 items-start">
-
-          {/* LEFT */}
-          <div className="hidden lg:block lg:col-span-4 sticky top-24">
-            <UserProfileSidebar
-              elo={user.elo ?? 1200}
-              trend="+12 this week"
-              streak={4}
-              scoutViewCount={2}
-            />
-          </div>
+      <main className="pt-24 pb-20 px-4 md:px-8 max-w-3xl mx-auto">
+        <div className="space-y-8">
 
           {/* FEED */}
-          <div className="lg:col-span-8 space-y-8">
+          <div>
 
             {error ? (
               <ErrorState onRetry={fetchFeed} />
@@ -126,7 +116,7 @@ const Feed: React.FC = () => {
                   posts.map(post => (
                     <div
                       key={post.id}
-                      className="bg-zinc-900/40 border border-white/5 rounded-2xl overflow-hidden"
+                      className="bg-zinc-900/40 border border-white/5 rounded-2xl overflow-hidden mb-6"
                     >
                       {/* HEADER */}
                       <div className="p-4 flex items-center justify-between">
@@ -158,13 +148,13 @@ const Feed: React.FC = () => {
                             {post.media_type === 'image' ? (
                               <img
                                 src={post.media_url}
-                                className="w-full max-h-[420px] object-cover"
+                                className="w-full max-h-[500px] object-cover"
                               />
                             ) : (
                               <video
                                 src={post.media_url}
                                 controls
-                                className="w-full max-h-[420px]"
+                                className="w-full max-h-[500px]"
                               />
                             )}
                           </div>

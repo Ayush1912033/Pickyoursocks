@@ -115,7 +115,8 @@ const Navbar: React.FC = () => {
           </Link>
 
           <div className="flex items-center gap-1 border-l border-white/10 pl-8 h-8">
-            <NavItem title="Radar" to="/feed" />
+            <NavItem title="Feed" to="/feed" />
+            <NavItem title="Radar" to="/radar" />
             <NavItem title="Ranking" to="/rankings" />
           </div>
         </div>
