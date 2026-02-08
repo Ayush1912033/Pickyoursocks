@@ -33,6 +33,10 @@ const Radar: React.FC = () => {
                         name,
                         elo,
                         location:locality
+                    ),
+                    match_results (
+                        player1_claim,
+                        player2_claim
                     )
                 `)
                 .order('created_at', { ascending: false });
@@ -44,26 +48,39 @@ const Radar: React.FC = () => {
                 .filter((req: any) => {
                     // Show if active
                     if (req.status === 'active') return true;
-                    // Show if accepted AND user is involved
-                    if (req.status === 'accepted') {
+                    // Show if accepted/completed AND user is involved
+                    if (req.status === 'accepted' || req.status === 'completed') {
                         return user && (req.user_id === user.id || req.accepted_by === user.id);
                     }
                     return false;
                 })
-                .map((req: any) => ({
-                    id: req.id,
-                    title: `${req.profiles?.name || 'Unknown'} - ${req.sport}`,
-                    sport: req.sport,
-                    distance: req.profiles?.location || 'Nearby', // Fallback
-                    time: new Date(req.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    requiredEloRange: [
-                        (req.profiles?.elo || 1200) - 100,
-                        (req.profiles?.elo || 1200) + 100
-                    ],
-                    status: req.status,
-                    user_id: req.user_id,
-                    accepted_by: req.accepted_by
-                }));
+                .map((req: any) => {
+                    // Check if current user has claimed
+                    let userClaimed = false;
+                    const resultRow = req.match_results?.[0]; // Assuming 1-to-1 or 0-to-1 via match_id
+
+                    if (resultRow && user) {
+                        if (user.id === req.user_id && resultRow.player1_claim) userClaimed = true;
+                        if (user.id === req.accepted_by && resultRow.player2_claim) userClaimed = true;
+                    }
+
+                    return {
+                        id: req.id,
+                        title: `${req.profiles?.name || 'Unknown'} - ${req.sport}`,
+                        location: req.profiles?.location || 'Unknown', // Added missing property
+                        sport: req.sport,
+                        distance: req.profiles?.location || 'Nearby', // Fallback
+                        time: new Date(req.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        requiredEloRange: [
+                            (req.profiles?.elo || 1200) - 100,
+                            (req.profiles?.elo || 1200) + 100
+                        ],
+                        status: req.status,
+                        user_id: req.user_id,
+                        accepted_by: req.accepted_by,
+                        userClaimed: userClaimed
+                    };
+                });
 
             setMatches(validMatches);
         } catch (err) {

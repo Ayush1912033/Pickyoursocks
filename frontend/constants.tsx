@@ -300,9 +300,11 @@ export interface MatchOpportunity {
   requiredEloRange: [number, number];
   sport: string;
   time: string;
-  status?: 'active' | 'accepted' | 'expired';
+  status?: 'active' | 'accepted' | 'expired' | 'completed';
   user_id?: string;
   accepted_by?: string;
+  userClaimed?: boolean;
+  userClaimedResult?: 'win' | 'loss';
 }
 
 export const MATCH_OPPORTUNITIES: MatchOpportunity[] = [
