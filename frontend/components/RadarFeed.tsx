@@ -43,48 +43,69 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
         if (!selectedMatch || !resultType || !user) return;
 
         try {
-            // Determine winner/loser based on reporting user and result type
-            const isReporterCreator = selectedMatch.user_id === user.id;
-            const reporterWon = resultType === 'win';
+            // 1. Identify Roles
+            const isPlayer1 = user.id === selectedMatch.user_id; // Creator
+            const isPlayer2 = user.id === selectedMatch.accepted_by; // Acceptor
 
-            // If reporter is creator:
-            //   - Win: Winner = Creator (User), Loser = Acceptor
-            //   - Loss: Winner = Acceptor, Loser = Creator (User)
-            // If reporter is acceptor:
-            //   - Win: Winner = Acceptor (User), Loser = Creator
-            //   - Loss: Winner = Creator, Loser = Acceptor (User)
-
-            // To simplify logic:
-            let winnerId, loserId;
-
-            if (reporterWon) {
-                winnerId = user.id;
-                loserId = isReporterCreator ? selectedMatch.accepted_by : selectedMatch.user_id;
-            } else {
-                winnerId = isReporterCreator ? selectedMatch.accepted_by : selectedMatch.user_id;
-                loserId = user.id;
+            if (!isPlayer1 && !isPlayer2) {
+                alert("You are not part of this match!");
+                return;
             }
 
-            const { error } = await supabase.from('match_results').insert({
-                sport: selectedMatch.sport,
-                score: score,
-                player1_id: selectedMatch.user_id, // Always keep original roles
-                player2_id: selectedMatch.accepted_by,
-                winner_id: winnerId,
-                // We'll verify later, for now trust the reporter
-                is_verified: true,
-                played_at: new Date().toISOString()
-            });
+            // 2. Determine Claimed Winner
+            let claimedWinnerId;
+            if (resultType === 'win') {
+                claimedWinnerId = user.id;
+            } else {
+                // If I lost, the other person won
+                claimedWinnerId = isPlayer1 ? selectedMatch.accepted_by : selectedMatch.user_id;
+            }
+
+            const claimPayload = {
+                winner_id: claimedWinnerId,
+                score: score
+            };
+
+            // 3. Check for existing result row
+            const { data: existingResult, error: fetchError } = await supabase
+                .from('match_results')
+                .select('id')
+                .eq('match_id', selectedMatch.id)
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
+
+            let error;
+
+            if (existingResult) {
+                // UPDATE existing row
+                const updateData = isPlayer1
+                    ? { player1_claim: claimPayload }
+                    : { player2_claim: claimPayload };
+
+                const { error: updateError } = await supabase
+                    .from('match_results')
+                    .update(updateData)
+                    .eq('match_id', selectedMatch.id);
+                error = updateError;
+            } else {
+                // INSERT new row
+                const insertData = {
+                    match_id: selectedMatch.id,
+                    sport: selectedMatch.sport,
+                    player1_id: selectedMatch.user_id,
+                    player2_id: selectedMatch.accepted_by,
+                    [isPlayer1 ? 'player1_claim' : 'player2_claim']: claimPayload
+                };
+                const { error: insertError } = await supabase
+                    .from('match_results')
+                    .insert(insertData);
+                error = insertError;
+            }
 
             if (error) throw error;
 
-            // Also expire the request so it falls off radar (or archive it)
-            // Ideally we delete or move to 'completed' status
-            await supabase
-                .from('match_requests')
-                .update({ status: 'completed' })
-                .eq('id', selectedMatch.id);
-
+            alert("Result submitted! Waiting for opponent to verify.");
             window.location.reload();
 
         } catch (err: any) {
@@ -154,8 +175,8 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                                                 onClick={() => handleAccept(match.id)}
                                                 disabled={isOwnMatch}
                                                 className={`px-8 py-3 font-black uppercase tracking-wider rounded-xl transition-all shadow-lg ${isOwnMatch
-                                                        ? 'bg-zinc-800 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-white text-black hover:bg-blue-500 hover:text-white hover:scale-105 shadow-white/10 hover:shadow-blue-500/20'
+                                                    ? 'bg-zinc-800 text-gray-500 cursor-not-allowed'
+                                                    : 'bg-white text-black hover:bg-blue-500 hover:text-white hover:scale-105 shadow-white/10 hover:shadow-blue-500/20'
                                                     }`}
                                             >
                                                 {isOwnMatch ? 'WAITING...' : 'ACCEPT'}
