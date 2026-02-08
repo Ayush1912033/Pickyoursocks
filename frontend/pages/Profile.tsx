@@ -10,14 +10,14 @@ import { supabase } from '../lib/supabase';
 import { uploadProfilePhoto } from '../lib/r2';
 
 const Profile: React.FC = () => {
-  const { user: currentUser, updateUser } = useAuth();
+  const { user: currentUser, updateUser, logout } = useAuth();
   const { userId } = useParams();
 
   const [profileUser, setProfileUser] = useState<any>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
-  
+
   const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
-  
+
   // If no userId param, show current user. If userId param, fetch that user.
   useEffect(() => {
     if (isOwnProfile) {
@@ -32,9 +32,9 @@ const Profile: React.FC = () => {
         .single()
         .then(({ data, error }) => {
           if (data) {
-             setProfileUser(data);
+            setProfileUser(data);
           } else {
-             console.error("Error fetching profile:", error);
+            console.error("Error fetching profile:", error);
           }
           setIsLoadingProfile(false);
         });
@@ -186,7 +186,7 @@ const Profile: React.FC = () => {
           />
         )
       ) : (
-          <p className="font-medium">{value || <span className="text-gray-600 italic">Not set</span>}</p>
+        <p className="font-medium">{value || <span className="text-gray-600 italic">Not set</span>}</p>
       )}
     </div>
   );
@@ -364,6 +364,18 @@ const Profile: React.FC = () => {
         ) : (
           <div className="text-center py-20 border border-dashed border-white/10 rounded-3xl">
             <p className="text-gray-500">No posts yet</p>
+          </div>
+        )}
+        {/* ================= LOGOUT ================= */}
+        {isOwnProfile && (
+          <div className="mt-12 text-center pb-8 border-t border-white/10 pt-12">
+            <button
+              onClick={logout}
+              className="text-red-500 font-bold uppercase tracking-widest text-sm hover:text-red-400 border border-red-500/30 px-8 py-3 rounded-xl hover:bg-red-500/10 transition-all hover:scale-105"
+            >
+              Log Out
+            </button>
+            <p className="text-gray-600 text-xs mt-4">Pickyoursocks v1.0</p>
           </div>
         )}
       </main>

@@ -15,6 +15,7 @@ import TermsOfService from './components/TermsOfService';
 import Auth from './pages/Auth';
 import Feed from './pages/Feed';
 import Profile from './pages/Profile';
+import Radar from './pages/Radar';
 import AllSports from './pages/AllSports';
 import Rankings from './pages/Rankings';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -67,6 +68,15 @@ const App: React.FC = () => {
         element={
           <ProtectedRoute>
             <Feed />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/radar"
+        element={
+          <ProtectedRoute>
+            <Radar />
           </ProtectedRoute>
         }
       />

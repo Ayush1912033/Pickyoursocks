@@ -38,6 +38,9 @@ export interface User {
   achievements?: string[];
 
   connections?: number;
+  reliability_score?: number;
+  calibration_games_remaining?: number;
+  rating_deviation?: number;
 }
 
 interface AuthContextType {
@@ -46,7 +49,7 @@ interface AuthContextType {
 
   login: (email: string, password: string) => Promise<void>;
   signup: (
-    userData: Pick<User, 'email' | 'name' | 'sports'>,
+    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo'>,
     password: string
   ) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -207,7 +210,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Signup
   ----------------------- */
   const signup = async (
-    userData: Pick<User, 'email' | 'name' | 'sports'>,
+    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo'>,
     password: string
   ) => {
     const { data, error } = await supabase.auth.signUp({
@@ -225,7 +228,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         id: data.user.id,
         name: userData.name,
         sports: userData.sports ?? [],
-        elo: 1200,
+        elo: userData.elo ?? 800, // Default to 800 if not provided
+        reliability_score: userData.reliability_score ?? 100,
+        calibration_games_remaining: userData.calibration_games_remaining ?? 5,
+        rating_deviation: userData.rating_deviation ?? 350,
       });
     }
   };
