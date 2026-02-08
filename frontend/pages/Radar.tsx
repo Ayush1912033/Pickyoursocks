@@ -27,32 +27,45 @@ const Radar: React.FC = () => {
                     scheduled_time,
                     status,
                     created_at,
+                    user_id,
+                    accepted_by,
                     profiles:user_id (
                         name,
                         elo,
                         location:locality
                     )
                 `)
-                .eq('status', 'active')
                 .order('created_at', { ascending: false });
 
             if (error) throw error;
 
-            // Map Supabase data to MatchOpportunity interface
-            const realMatches: MatchOpportunity[] = (data || []).map((req: any) => ({
-                id: req.id,
-                title: `${req.profiles?.name || 'Unknown'} - ${req.sport}`,
-                sport: req.sport,
-                distance: req.profiles?.location || 'Nearby', // Fallback
-                time: new Date(req.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                requiredEloRange: [
-                    (req.profiles?.elo || 1200) - 100,
-                    (req.profiles?.elo || 1200) + 100
-                ],
-                spotsLeft: 1
-            }));
+            // Filter and Map Supabase data
+            const validMatches: MatchOpportunity[] = (data || [])
+                .filter((req: any) => {
+                    // Show if active
+                    if (req.status === 'active') return true;
+                    // Show if accepted AND user is involved
+                    if (req.status === 'accepted') {
+                        return user && (req.user_id === user.id || req.accepted_by === user.id);
+                    }
+                    return false;
+                })
+                .map((req: any) => ({
+                    id: req.id,
+                    title: `${req.profiles?.name || 'Unknown'} - ${req.sport}`,
+                    sport: req.sport,
+                    distance: req.profiles?.location || 'Nearby', // Fallback
+                    time: new Date(req.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    requiredEloRange: [
+                        (req.profiles?.elo || 1200) - 100,
+                        (req.profiles?.elo || 1200) + 100
+                    ],
+                    status: req.status,
+                    user_id: req.user_id,
+                    accepted_by: req.accepted_by
+                }));
 
-            setMatches(realMatches);
+            setMatches(validMatches);
         } catch (err) {
             console.error('Radar fetch failed:', err);
             setError('Failed to load radar signals.');
@@ -93,7 +106,7 @@ const Radar: React.FC = () => {
                                 <div className="h-40 bg-zinc-900/40 rounded-xl" />
                             </div>
                         ) : (
-                            <RadarFeed matches={matches} userElo={user?.elo} />
+                            <RadarFeed matches={matches} user={user} />
                         )}
                     </div>
 

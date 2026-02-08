@@ -2,12 +2,56 @@ import React from 'react';
 import { MapPin, Target, Users, Radio, Clock } from 'lucide-react';
 import { MatchOpportunity } from '../constants';
 
+import { supabase } from '../lib/supabase';
+import { useAuth } from './AuthContext';
+
 interface RadarFeedProps {
     matches: MatchOpportunity[];
-    userElo?: number;
+    user: any; // Using any for AuthUser for now to match context
 }
 
-const RadarFeed: React.FC<RadarFeedProps> = ({ matches, userElo = 1200 }) => {
+const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
+
+    const handleAccept = async (matchId: string) => {
+        if (!user) return;
+        try {
+            const { error } = await supabase
+                .from('match_requests')
+                .update({
+                    status: 'accepted',
+                    accepted_by: user.id
+                })
+                .eq('id', matchId);
+
+            if (error) throw error;
+            // Force reload or optimistically update? 
+            // Ideally Radar parent should reload, but for now we can rely on real-time or page refresh.
+            // Let's trigger a window reload or alert for now since we don't have a callback refetch passed down.
+            window.location.reload();
+        } catch (err) {
+            console.error('Accept failed:', err);
+            alert('Failed to accept match.');
+        }
+    };
+
+    const handleResult = async (matchId: string, result: 'win' | 'loss', score: string) => {
+        // This would insert into match_results. For MVP/prototype, just an alert.
+        if (!score.trim()) {
+            alert('Please enter the score first!');
+            return;
+        }
+        alert(`Reporting ${result.toUpperCase()} with score: ${score}`);
+
+        // TODO: Insert into match_results table
+        /*
+        await supabase.from('match_results').insert({
+            match_id: matchId, // we need match_id in schema? or just player IDs. 
+            // Schema has player1_id, player2_id... we need to look those up from the match object or context.
+            // For now, let's keep it simple.
+        });
+        */
+    };
+
     return (
         <div className="space-y-6 pb-24">
             <div className="flex items-center justify-between mb-6">
@@ -23,12 +67,15 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, userElo = 1200 }) => {
             {matches.length > 0 ? (
                 <div className="space-y-4">
                     {matches.map((match) => {
-                        const isSkillMatch = userElo >= match.requiredEloRange[0] && userElo <= match.requiredEloRange[1];
+                        const isSkillMatch = user?.elo >= match.requiredEloRange[0] && user?.elo <= match.requiredEloRange[1];
+                        const isOwnMatch = user && match.user_id === user.id;
+                        const isParticipant = user && (match.user_id === user.id || match.accepted_by === user.id);
+                        const isAccepted = match.status === 'accepted';
 
                         return (
                             <div
                                 key={match.id}
-                                className="group relative bg-zinc-900/50 hover:bg-zinc-900 border border-white/5 hover:border-green-500/50 rounded-2xl p-6 transition-all duration-300"
+                                className={`group relative bg-zinc-900/50 hover:bg-zinc-900 border ${isAccepted ? 'border-blue-500/30' : 'border-white/5'} hover:border-green-500/50 rounded-2xl p-6 transition-all duration-300`}
                             >
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                                     <div className="space-y-3">
@@ -46,13 +93,56 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, userElo = 1200 }) => {
 
                                         <p className={`text-sm font-medium ${isSkillMatch ? 'text-green-400' : 'text-gray-400'}`}>
                                             Looking for ELO {match.requiredEloRange[0]}-{match.requiredEloRange[1]}
-                                            {isSkillMatch && <span className="ml-2 py-0.5 px-2 bg-green-500/10 rounded text-xs">PERFECT MATCH</span>}
+                                            {isSkillMatch && !isAccepted && <span className="ml-2 py-0.5 px-2 bg-green-500/10 rounded text-xs">PERFECT MATCH</span>}
+                                            {isAccepted && <span className="ml-2 py-0.5 px-2 bg-blue-500/10 text-blue-400 rounded text-xs">ACCEPTED</span>}
                                         </p>
                                     </div>
 
-                                    <button className="px-8 py-3 bg-white text-black font-black uppercase tracking-wider rounded-xl hover:bg-blue-500 hover:text-white transition-all transform hover:scale-105 shadow-lg shadow-white/10 hover:shadow-blue-500/20">
-                                        ACCEPT
-                                    </button>
+                                    {/* ACTIONS */}
+                                    <div className="flex flex-col gap-2 min-w-[140px]">
+                                        {!isAccepted ? (
+                                            <button
+                                                onClick={() => handleAccept(match.id)}
+                                                disabled={isOwnMatch}
+                                                className={`px-8 py-3 font-black uppercase tracking-wider rounded-xl transition-all shadow-lg ${isOwnMatch
+                                                        ? 'bg-zinc-800 text-gray-500 cursor-not-allowed'
+                                                        : 'bg-white text-black hover:bg-blue-500 hover:text-white hover:scale-105 shadow-white/10 hover:shadow-blue-500/20'
+                                                    }`}
+                                            >
+                                                {isOwnMatch ? 'WAITING...' : 'ACCEPT'}
+                                            </button>
+                                        ) : (
+                                            isParticipant ? (
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500 hover:text-white transition-all font-bold uppercase text-xs"
+                                                            onClick={() => {
+                                                                const score = prompt('Enter Score (e.g. 21-19, 21-15):');
+                                                                if (score) handleResult(match.id, 'win', score);
+                                                            }}
+                                                        >
+                                                            WIN
+                                                        </button>
+                                                        <button
+                                                            className="flex-1 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500 hover:text-white transition-all font-bold uppercase text-xs"
+                                                            onClick={() => {
+                                                                const score = prompt('Enter Score (e.g. 19-21, 15-21):');
+                                                                if (score) handleResult(match.id, 'loss', score);
+                                                            }}
+                                                        >
+                                                            LOSS
+                                                        </button>
+                                                    </div>
+                                                    <p className="text-[10px] text-center text-gray-500 uppercase tracking-widest">Report Result</p>
+                                                </div>
+                                            ) : (
+                                                <button disabled className="px-8 py-3 bg-zinc-800 text-blue-400 font-bold uppercase tracking-wider rounded-xl cursor-default border border-blue-500/20">
+                                                    ACCEPTED
+                                                </button>
+                                            )
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         );
