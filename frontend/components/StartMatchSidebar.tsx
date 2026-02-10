@@ -2,8 +2,10 @@ import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { Clock, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { useNotification } from './NotificationContext';
 
 const StartMatchSidebar: React.FC = () => {
+    const { showNotification } = useNotification();
     const { user } = useAuth();
     const [isBroadcasting, setIsBroadcasting] = useState(false);
     const [date, setDate] = useState('');
@@ -12,7 +14,7 @@ const StartMatchSidebar: React.FC = () => {
     const handleBroadcast = async () => {
         if (!user) return;
         if (!date || !time) {
-            alert('Please select a date and time.');
+            showNotification('Please select a date and time.', 'error');
             return;
         }
 
@@ -31,13 +33,13 @@ const StartMatchSidebar: React.FC = () => {
 
             if (error) throw error;
 
-            alert('Challenge Broadcasted! 📡');
+            showNotification('Challenge Broadcasted! 📡', 'success');
             // Reset form
             setDate('');
             setTime('');
         } catch (error: any) {
             console.error('Error broadcasting:', error);
-            alert('Failed to broadcast: ' + error.message);
+            showNotification('Failed to broadcast: ' + error.message, 'error');
         } finally {
             setIsBroadcasting(false);
         }

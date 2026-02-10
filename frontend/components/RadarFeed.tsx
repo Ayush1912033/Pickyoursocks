@@ -5,6 +5,7 @@ import { MatchOpportunity } from '../constants';
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
 import MatchResultModal from './MatchResultModal';
+import { useNotification } from './NotificationContext';
 
 interface RadarFeedProps {
     matches: MatchOpportunity[];
@@ -12,8 +13,11 @@ interface RadarFeedProps {
 }
 
 const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
+    const { showNotification } = useNotification();
     const [selectedMatch, setSelectedMatch] = useState<MatchOpportunity | null>(null);
     const [resultType, setResultType] = useState<'win' | 'loss' | null>(null);
+    const [localClaimedIds, setLocalClaimedIds] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleAccept = async (matchId: string) => {
         if (!user) return;
@@ -27,10 +31,11 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                 .eq('id', matchId);
 
             if (error) throw error;
-            window.location.reload();
+            showNotification('Match accepted!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
         } catch (err) {
             console.error('Accept failed:', err);
-            alert('Failed to accept match.');
+            showNotification('Failed to accept match.', 'error');
         }
     };
 
@@ -42,13 +47,14 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
     const handleSubmitResult = async (score: string) => {
         if (!selectedMatch || !resultType || !user) return;
 
+        setIsSubmitting(true);
         try {
             // 1. Identify Roles
             const isPlayer1 = user.id === selectedMatch.user_id; // Creator
             const isPlayer2 = user.id === selectedMatch.accepted_by; // Acceptor
 
             if (!isPlayer1 && !isPlayer2) {
-                alert("You are not part of this match!");
+                showNotification("You are not part of this match!", "error");
                 return;
             }
 
@@ -105,12 +111,18 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
 
             if (error) throw error;
 
-            alert("Result submitted! Waiting for opponent to verify.");
-            window.location.reload();
+            // Optimistic update
+            setLocalClaimedIds(prev => [...prev, selectedMatch.id]);
+            setSelectedMatch(null); // Close modal immediately
+
+            showNotification("Result submitted! Waiting for opponent to verify.", "success");
+            setTimeout(() => window.location.reload(), 2000);
 
         } catch (err: any) {
             console.error('Result submit failed:', err);
-            alert('Failed to save result: ' + err.message);
+            showNotification('Failed to save result: ' + err.message, "error");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -184,8 +196,9 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                                         ) : (
                                             isParticipant ? (
                                                 <div className="flex flex-col gap-2">
-                                                    {match.userClaimed ? (
-                                                        <button disabled className="w-full py-3 bg-zinc-800 text-yellow-500 font-bold uppercase tracking-wider rounded-xl cursor-not-allowed border border-yellow-500/20 text-xs">
+                                                    {match.userClaimed || localClaimedIds.includes(match.id) ? (
+                                                        <button disabled className="w-full py-3 bg-zinc-800 text-yellow-500 font-bold uppercase tracking-wider rounded-xl cursor-not-allowed border border-yellow-500/20 text-[10px] flex items-center justify-center gap-2">
+                                                            <Clock size={14} className="animate-pulse" />
                                                             AWAITING VERIFICATION
                                                         </button>
                                                     ) : (

@@ -8,8 +8,10 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { supabase } from '../lib/supabase';
 import { uploadProfilePhoto } from '../lib/r2';
+import { useNotification } from '../components/NotificationContext';
 
 const Profile: React.FC = () => {
+  const { showNotification } = useNotification();
   const { user: currentUser, updateUser, logout } = useAuth();
   const { userId } = useParams();
 
@@ -104,7 +106,7 @@ const Profile: React.FC = () => {
   ========================= */
   const handleSave = async () => {
     if (!username.trim()) {
-      alert('Username is required');
+      showNotification('Username is required', 'error');
       return;
     }
 
@@ -130,11 +132,11 @@ const Profile: React.FC = () => {
         region,
       });
 
-      alert('Profile updated successfully');
+      showNotification('Profile updated successfully', 'success');
       setIsEditing(false); // Exit edit mode
     } catch (err: any) {
       console.error('SAVE ERROR:', err);
-      alert(err.message || 'Failed to save profile');
+      showNotification(err.message || 'Failed to save profile', 'error');
     }
   };
 
@@ -156,9 +158,8 @@ const Profile: React.FC = () => {
       const file = e.target.files[0];
       const url = await uploadProfilePhoto(file, currentUser.id);
       await updateUser({ profile_photo: url });
-      // Update local state is handled by auth context usually, but if we are viewing "profileUser" which is set to "currentUser", it should update via useEffect dependency on "currentUser"
     } catch (err) {
-      alert('Photo upload failed');
+      showNotification('Photo upload failed', 'error');
     } finally {
       setIsUploading(false);
     }
