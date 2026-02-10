@@ -3,7 +3,7 @@ import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
 import StartMatchSidebar from '../components/StartMatchSidebar';
 import { supabase } from '../lib/supabase';
-import { Target, Users, Radio, Loader2, AlertCircle } from 'lucide-react';
+import { Target, Users, Radio, Loader2, AlertCircle, Check, X } from 'lucide-react';
 import { useNotification } from '../components/NotificationContext';
 import { SPORTS } from '../constants';
 
@@ -17,9 +17,12 @@ const Radar: React.FC = () => {
 
     const [selectedSport, setSelectedSport] = useState<string>('');
     const [players, setPlayers] = useState<any[]>([]);
+    const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
+    const [broadcasts, setBroadcasts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [challenging, setChallenging] = useState<string | null>(null);
+    const [isAccepting, setIsAccepting] = useState<string | null>(null);
 
     // 1. Handle Sport Selection Default
     useEffect(() => {
@@ -39,8 +42,8 @@ const Radar: React.FC = () => {
             const { data, error: rpcError } = await supabase.rpc(
                 'get_radar_matches',
                 {
-                    current_user_id: user.id,
-                    selected_sport: selectedSport
+                    _current_user_id: user.id,
+                    _selected_sport: selectedSport
                 }
             );
 
@@ -54,23 +57,82 @@ const Radar: React.FC = () => {
         }
     };
 
-    // 3. Trigger Fetch on Sport Change
+    // 3. Fetch Incoming Challenges
+    const fetchIncoming = async () => {
+        if (!user) return;
+
+        try {
+            const { data, error: fetchError } = await supabase
+                .from('match_requests')
+                .select(`
+                    *,
+                    challenger:profiles!match_requests_user_id_fkey (
+                        id,
+                        name,
+                        profile_photo,
+                        elo
+                    )
+                `)
+                .eq('opponent_id', user.id)
+                .eq('status', 'pending');
+
+            if (fetchError) throw fetchError;
+            setIncomingRequests(data || []);
+        } catch (err) {
+            console.error('Incoming fetch error:', err);
+        }
+    };
+
+    // 4. Fetch Broadcasts
+    const fetchBroadcasts = async () => {
+        if (!user || !selectedSport) return;
+
+        try {
+            const { data, error: fetchError } = await supabase
+                .from('match_requests')
+                .select(`
+                    *,
+                    challenger:profiles!match_requests_user_id_fkey (
+                        id,
+                        name,
+                        profile_photo,
+                        elo
+                    )
+                `)
+                .eq('status', 'active')
+                .eq('sport', selectedSport)
+                .neq('user_id', user.id);
+
+            if (fetchError) throw fetchError;
+            setBroadcasts(data || []);
+        } catch (err) {
+            console.error('Broadcast fetch error:', err);
+        }
+    };
+
+    // 5. Trigger Fetch on Sport Change
     useEffect(() => {
-        if (selectedSport) {
+        if (selectedSport && user) {
             fetchRadar();
+            fetchIncoming();
+            fetchBroadcasts();
         }
     }, [selectedSport, user?.id]);
 
-    // 4. Realtime Listener
+    // 6. Realtime Listener
     useEffect(() => {
-        if (!selectedSport) return;
+        if (!selectedSport || !user) return;
 
         const channel = supabase
             .channel('radar-refresh')
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'match_requests' },
-                () => fetchRadar()
+                () => {
+                    fetchRadar();
+                    fetchIncoming();
+                    fetchBroadcasts();
+                }
             )
             .subscribe();
 
@@ -79,7 +141,7 @@ const Radar: React.FC = () => {
         };
     }, [selectedSport, user?.id]);
 
-    // 5. Challenge Function
+    // 7. Challenge Function
     const handleChallenge = async (opponentId: string) => {
         if (!user || !selectedSport) return;
 
@@ -97,13 +159,60 @@ const Radar: React.FC = () => {
 
             if (insertError) throw insertError;
 
-            showNotification('Challenge Broadcaster! 📡', 'success');
+            showNotification('Challenge sent! 📡', 'success');
             fetchRadar();
+            fetchIncoming();
         } catch (err: any) {
             console.error('Challenge Error:', err);
             showNotification('Failed to send challenge: ' + err.message, 'error');
         } finally {
             setChallenging(null);
+        }
+    };
+
+    // 8. Accept Challenge
+    const handleAcceptChallenge = async (requestId: string) => {
+        if (!user) return;
+
+        setIsAccepting(requestId);
+
+        try {
+            const { error: updateError } = await supabase
+                .from('match_requests')
+                .update({
+                    status: 'accepted',
+                    accepted_by: user.id
+                })
+                .eq('id', requestId);
+
+            if (updateError) throw updateError;
+
+            showNotification('Challenge accepted! 🎾', 'success');
+            fetchIncoming();
+            fetchBroadcasts();
+            fetchRadar();
+        } catch (err: any) {
+            console.error('Accept Error:', err);
+            showNotification('Failed to accept: ' + err.message, 'error');
+        } finally {
+            setIsAccepting(null);
+        }
+    };
+
+    // 9. Decline Challenge
+    const handleDeclineChallenge = async (requestId: string) => {
+        try {
+            const { error: updateError } = await supabase
+                .from('match_requests')
+                .update({ status: 'declined' })
+                .eq('id', requestId);
+
+            if (updateError) throw updateError;
+            showNotification('Challenge declined.', 'info');
+            fetchIncoming();
+        } catch (err: any) {
+            console.error('Decline Error:', err);
+            showNotification('Failed to decline.', 'error');
         }
     };
 
@@ -159,6 +268,125 @@ const Radar: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* Incoming Signals (Challenges) */}
+                        {incomingRequests.length > 0 && (
+                            <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center gap-2 text-blue-500 px-2">
+                                    <div className="w-2 h-2 bg-blue-500 rounded-full animate-ping"></div>
+                                    <h4 className="text-sm font-black uppercase tracking-[0.2em] italic">Incoming Signals</h4>
+                                </div>
+                                <div className="grid gap-4">
+                                    {incomingRequests.map((req) => (
+                                        <div
+                                            key={req.id}
+                                            className="bg-blue-600/10 border border-blue-500/30 p-4 rounded-3xl flex items-center justify-between group hover:bg-blue-600/20 transition-all duration-300 backdrop-blur-md"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <img
+                                                    src={req.challenger?.profile_photo || '/avatar-placeholder.png'}
+                                                    className="w-12 h-12 rounded-2xl object-cover border-2 border-blue-500/20"
+                                                />
+                                                <div>
+                                                    <h5 className="font-bold text-white uppercase text-sm tracking-tight">
+                                                        {req.challenger?.name} <span className="text-blue-500 mx-1">•</span> Level {Math.floor((req.challenger?.elo || 800) / 400)}
+                                                    </h5>
+                                                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">
+                                                        Sent a challenge for <span className="text-white italic">{req.sport}</span>
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    onClick={() => handleDeclineChallenge(req.id)}
+                                                    className="p-3 rounded-2xl bg-zinc-900 border border-white/5 text-gray-500 hover:text-red-500 hover:border-red-500/30 transition-all"
+                                                >
+                                                    <X size={18} />
+                                                </button>
+                                                <button
+                                                    disabled={isAccepting === req.id}
+                                                    onClick={() => handleAcceptChallenge(req.id)}
+                                                    className="px-6 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-500 transition-all hover:scale-105 shadow-lg shadow-blue-600/20 flex items-center gap-2"
+                                                >
+                                                    {isAccepting === req.id ? (
+                                                        <Loader2 className="animate-spin" size={14} />
+                                                    ) : (
+                                                        <>
+                                                            <Check size={14} />
+                                                            Accept Signal
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Open Broadcasts */}
+                        {broadcasts.length > 0 && (
+                            <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center gap-2 text-green-500 px-2">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
+                                    <h4 className="text-sm font-black uppercase tracking-[0.2em] italic">Open Frequency</h4>
+                                </div>
+                                <div className="grid gap-4">
+                                    {broadcasts.map((b) => (
+                                        <div
+                                            key={b.id}
+                                            className="bg-zinc-900 border border-white/10 p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:border-green-500/30 transition-all duration-300"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative">
+                                                    <img
+                                                        src={b.challenger?.profile_photo || '/avatar-placeholder.png'}
+                                                        className="w-14 h-14 rounded-2xl object-cover border-2 border-white/10"
+                                                    />
+                                                    <div className="absolute -top-1 -right-1 bg-green-500 p-1 rounded-full border-2 border-zinc-900 animate-pulse">
+                                                        <Radio size={10} className="text-white" />
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h5 className="font-bold text-white uppercase tracking-tight">
+                                                        {b.challenger?.name}'s <span className="text-green-500 italic">{b.sport}</span> Session
+                                                    </h5>
+                                                    <div className="flex items-center gap-3 mt-1">
+                                                        <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1">
+                                                            <Target size={10} /> Elo: {b.challenger?.elo}
+                                                        </span>
+                                                        {b.scheduled_time && (
+                                                            <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded">
+                                                                {new Date(b.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <button
+                                                disabled={isAccepting === b.id}
+                                                onClick={() => handleAcceptChallenge(b.id)}
+                                                className="px-8 py-3 bg-white text-black rounded-2xl font-black uppercase tracking-widest text-xs hover:bg-green-500 hover:text-white transition-all hover:scale-105 shadow-xl shadow-white/5 active:scale-95 flex items-center justify-center gap-2"
+                                            >
+                                                {isAccepting === b.id ? (
+                                                    <Loader2 className="animate-spin" size={14} />
+                                                ) : (
+                                                    <>Join Match</>
+                                                )}
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Nearby Players Heading */}
+                        {!loading && (players.length > 0 || broadcasts.length > 0 || incomingRequests.length > 0) && (
+                            <div className="flex items-center gap-2 text-gray-400 px-2 pt-4">
+                                <Users size={16} />
+                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] italic">Available Targets</h4>
+                            </div>
+                        )}
+
                         {/* States */}
                         {loading && !players.length ? (
                             <div className="py-20 flex flex-col items-center justify-center space-y-4">
@@ -177,7 +405,7 @@ const Radar: React.FC = () => {
                                     Retry Scan
                                 </button>
                             </div>
-                        ) : !players.length ? (
+                        ) : !players.length && !incomingRequests.length && !broadcasts.length ? (
                             <div className="bg-zinc-900/30 border-2 border-dashed border-white/5 rounded-[2rem] p-16 text-center space-y-6">
                                 <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto border border-white/10">
                                     <Radio className="text-gray-600" size={32} />

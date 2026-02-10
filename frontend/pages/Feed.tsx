@@ -44,7 +44,7 @@ const Feed: React.FC = () => {
           media_type,
           sport,
           created_at,
-          author:profiles (
+          author:profiles!posts_user_id_fkey (
             username,
             profile_photo
           )
