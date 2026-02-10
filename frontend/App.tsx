@@ -49,64 +49,68 @@ const Home: React.FC = () => {
   );
 };
 
+import { NotificationProvider } from './components/NotificationContext';
+
 /* ======================
    App Router
-====================== */
+ ====================== */
 const App: React.FC = () => {
   return (
-    <Routes>
-      {/* Public Routes */}
-      <Route path="/" element={<Home />} />
-      <Route path="/auth" element={<Auth />} />
-      <Route path="/sports" element={<AllSports />} />
-      <Route path="/privacy" element={<PrivacyPolicy />} />
-      <Route path="/terms" element={<TermsOfService />} />
+    <NotificationProvider>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/sports" element={<AllSports />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
 
-      {/* Protected Routes */}
-      <Route
-        path="/feed"
-        element={
-          <ProtectedRoute>
-            <Feed />
-          </ProtectedRoute>
-        }
-      />
+        {/* Protected Routes */}
+        <Route
+          path="/feed"
+          element={
+            <ProtectedRoute>
+              <Feed />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/radar"
-        element={
-          <ProtectedRoute>
-            <Radar />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/radar"
+          element={
+            <ProtectedRoute>
+              <Radar />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/profile"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/profile/:userId"
-        element={
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        }
-      />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:userId"
+          element={
+            <ProtectedRoute>
+              <Profile />
+            </ProtectedRoute>
+          }
+        />
 
-      <Route
-        path="/rankings"
-        element={
-          <ProtectedRoute>
-            <Rankings />
-          </ProtectedRoute>
-        }
-      />
-    </Routes>
+        <Route
+          path="/rankings"
+          element={
+            <ProtectedRoute>
+              <Rankings />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    </NotificationProvider>
   );
 };
 

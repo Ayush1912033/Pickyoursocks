@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapPin, Target, Users, Radio, Clock } from 'lucide-react';
 import { MatchOpportunity } from '../constants';
 
 import { supabase } from '../lib/supabase';
 import { useAuth } from './AuthContext';
+import MatchResultModal from './MatchResultModal';
+import { useNotification } from './NotificationContext';
 
 interface RadarFeedProps {
     matches: MatchOpportunity[];
@@ -11,6 +13,11 @@ interface RadarFeedProps {
 }
 
 const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
+    const { showNotification } = useNotification();
+    const [selectedMatch, setSelectedMatch] = useState<MatchOpportunity | null>(null);
+    const [resultType, setResultType] = useState<'win' | 'loss' | null>(null);
+    const [localClaimedIds, setLocalClaimedIds] = useState<string[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const handleAccept = async (matchId: string) => {
         if (!user) return;
@@ -24,36 +31,111 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                 .eq('id', matchId);
 
             if (error) throw error;
-            // Force reload or optimistically update? 
-            // Ideally Radar parent should reload, but for now we can rely on real-time or page refresh.
-            // Let's trigger a window reload or alert for now since we don't have a callback refetch passed down.
-            window.location.reload();
+            showNotification('Match accepted!', 'success');
+            setTimeout(() => window.location.reload(), 1000);
         } catch (err) {
             console.error('Accept failed:', err);
-            alert('Failed to accept match.');
+            showNotification('Failed to accept match.', 'error');
         }
     };
 
-    const handleResult = async (matchId: string, result: 'win' | 'loss', score: string) => {
-        // This would insert into match_results. For MVP/prototype, just an alert.
-        if (!score.trim()) {
-            alert('Please enter the score first!');
-            return;
-        }
-        alert(`Reporting ${result.toUpperCase()} with score: ${score}`);
+    const initiateReport = (match: MatchOpportunity, type: 'win' | 'loss') => {
+        setSelectedMatch(match);
+        setResultType(type);
+    };
 
-        // TODO: Insert into match_results table
-        /*
-        await supabase.from('match_results').insert({
-            match_id: matchId, // we need match_id in schema? or just player IDs. 
-            // Schema has player1_id, player2_id... we need to look those up from the match object or context.
-            // For now, let's keep it simple.
-        });
-        */
+    const handleSubmitResult = async (score: string) => {
+        if (!selectedMatch || !resultType || !user) return;
+
+        setIsSubmitting(true);
+        try {
+            // 1. Identify Roles
+            const isPlayer1 = user.id === selectedMatch.user_id; // Creator
+            const isPlayer2 = user.id === selectedMatch.accepted_by; // Acceptor
+
+            if (!isPlayer1 && !isPlayer2) {
+                showNotification("You are not part of this match!", "error");
+                return;
+            }
+
+            // 2. Determine Claimed Winner
+            let claimedWinnerId;
+            if (resultType === 'win') {
+                claimedWinnerId = user.id;
+            } else {
+                // If I lost, the other person won
+                claimedWinnerId = isPlayer1 ? selectedMatch.accepted_by : selectedMatch.user_id;
+            }
+
+            const claimPayload = {
+                winner_id: claimedWinnerId,
+                score: score
+            };
+
+            // 3. Check for existing result row
+            const { data: existingResult, error: fetchError } = await supabase
+                .from('match_results')
+                .select('id')
+                .eq('match_id', selectedMatch.id)
+                .maybeSingle();
+
+            if (fetchError) throw fetchError;
+
+            let error;
+
+            if (existingResult) {
+                // UPDATE existing row
+                const updateData = isPlayer1
+                    ? { player1_claim: claimPayload }
+                    : { player2_claim: claimPayload };
+
+                const { error: updateError } = await supabase
+                    .from('match_results')
+                    .update(updateData)
+                    .eq('match_id', selectedMatch.id);
+                error = updateError;
+            } else {
+                // INSERT new row
+                const insertData = {
+                    match_id: selectedMatch.id,
+                    sport: selectedMatch.sport,
+                    player1_id: selectedMatch.user_id,
+                    player2_id: selectedMatch.accepted_by,
+                    [isPlayer1 ? 'player1_claim' : 'player2_claim']: claimPayload
+                };
+                const { error: insertError } = await supabase
+                    .from('match_results')
+                    .insert(insertData);
+                error = insertError;
+            }
+
+            if (error) throw error;
+
+            // Optimistic update
+            setLocalClaimedIds(prev => [...prev, selectedMatch.id]);
+            setSelectedMatch(null); // Close modal immediately
+
+            showNotification("Result submitted! Waiting for opponent to verify.", "success");
+            setTimeout(() => window.location.reload(), 2000);
+
+        } catch (err: any) {
+            console.error('Result submit failed:', err);
+            showNotification('Failed to save result: ' + err.message, "error");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
         <div className="space-y-6 pb-24">
+            <MatchResultModal
+                isOpen={!!selectedMatch}
+                onClose={() => { setSelectedMatch(null); setResultType(null); }}
+                onSubmit={handleSubmitResult}
+                resultType={resultType}
+                opponentName={selectedMatch?.title.split(' - ')[0] || 'Opponent'}
+            />
+
             <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-2">
                     <Target className="text-blue-500" />
@@ -105,8 +187,8 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                                                 onClick={() => handleAccept(match.id)}
                                                 disabled={isOwnMatch}
                                                 className={`px-8 py-3 font-black uppercase tracking-wider rounded-xl transition-all shadow-lg ${isOwnMatch
-                                                        ? 'bg-zinc-800 text-gray-500 cursor-not-allowed'
-                                                        : 'bg-white text-black hover:bg-blue-500 hover:text-white hover:scale-105 shadow-white/10 hover:shadow-blue-500/20'
+                                                    ? 'bg-zinc-800 text-gray-500 cursor-not-allowed'
+                                                    : 'bg-white text-black hover:bg-blue-500 hover:text-white hover:scale-105 shadow-white/10 hover:shadow-blue-500/20'
                                                     }`}
                                             >
                                                 {isOwnMatch ? 'WAITING...' : 'ACCEPT'}
@@ -114,27 +196,30 @@ const RadarFeed: React.FC<RadarFeedProps> = ({ matches, user }) => {
                                         ) : (
                                             isParticipant ? (
                                                 <div className="flex flex-col gap-2">
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500 hover:text-white transition-all font-bold uppercase text-xs"
-                                                            onClick={() => {
-                                                                const score = prompt('Enter Score (e.g. 21-19, 21-15):');
-                                                                if (score) handleResult(match.id, 'win', score);
-                                                            }}
-                                                        >
-                                                            WIN
+                                                    {match.userClaimed || localClaimedIds.includes(match.id) ? (
+                                                        <button disabled className="w-full py-3 bg-zinc-800 text-yellow-500 font-bold uppercase tracking-wider rounded-xl cursor-not-allowed border border-yellow-500/20 text-[10px] flex items-center justify-center gap-2">
+                                                            <Clock size={14} className="animate-pulse" />
+                                                            AWAITING VERIFICATION
                                                         </button>
-                                                        <button
-                                                            className="flex-1 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500 hover:text-white transition-all font-bold uppercase text-xs"
-                                                            onClick={() => {
-                                                                const score = prompt('Enter Score (e.g. 19-21, 15-21):');
-                                                                if (score) handleResult(match.id, 'loss', score);
-                                                            }}
-                                                        >
-                                                            LOSS
-                                                        </button>
-                                                    </div>
-                                                    <p className="text-[10px] text-center text-gray-500 uppercase tracking-widest">Report Result</p>
+                                                    ) : (
+                                                        <>
+                                                            <div className="flex gap-2">
+                                                                <button
+                                                                    className="flex-1 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500 hover:text-white transition-all font-bold uppercase text-xs"
+                                                                    onClick={() => initiateReport(match, 'win')}
+                                                                >
+                                                                    WIN
+                                                                </button>
+                                                                <button
+                                                                    className="flex-1 py-2 bg-red-500/20 text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500 hover:text-white transition-all font-bold uppercase text-xs"
+                                                                    onClick={() => initiateReport(match, 'loss')}
+                                                                >
+                                                                    LOSS
+                                                                </button>
+                                                            </div>
+                                                            <p className="text-[10px] text-center text-gray-500 uppercase tracking-widest">Report Result</p>
+                                                        </>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <button disabled className="px-8 py-3 bg-zinc-800 text-blue-400 font-bold uppercase tracking-wider rounded-xl cursor-default border border-blue-500/20">
