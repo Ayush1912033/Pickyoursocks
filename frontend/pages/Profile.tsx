@@ -10,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { uploadProfilePhoto } from '../lib/r2';
 import { useNotification } from '../components/NotificationContext';
 import { SPORTS } from '../constants';
+import MatchHistory from '../components/MatchHistory';
 
 const Profile: React.FC = () => {
   const { showNotification } = useNotification();
@@ -396,6 +397,10 @@ const Profile: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* ================= MATCH HISTORY ================= */}
+        <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Match History</h2>
+        <MatchHistory userId={profileUser.id} />
 
         {/* ================= POSTS ================= */}
         <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Posts</h2>

@@ -3,7 +3,7 @@ import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
 import StartMatchSidebar from '../components/StartMatchSidebar';
 import { supabase } from '../lib/supabase';
-import { Target, Users, Radio, Loader2, AlertCircle, Check, X, Trophy } from 'lucide-react';
+import { Target, Users, Radio, Loader2, AlertCircle, Check, X, Trophy, Frown } from 'lucide-react';
 import { useNotification } from '../components/NotificationContext';
 import MatchResultModal from '../components/MatchResultModal';
 import { SPORTS } from '../constants';
@@ -142,10 +142,19 @@ const Radar: React.FC = () => {
                         name,
                         profile_photo,
                         elo
+                    ),
+                    result:match_results(
+                        id,
+                        winner_id,
+                        is_verified,
+                        player1_claim,
+                        player2_claim,
+                        score
                     )
                 `)
                 .eq('status', 'accepted')
-                .or(`user_id.eq.${user.id},accepted_by.eq.${user.id},opponent_id.eq.${user.id}`);
+                .or(`user_id.eq.${user.id},accepted_by.eq.${user.id},opponent_id.eq.${user.id}`)
+                .order('created_at', { ascending: false });
 
             if (fetchError) throw fetchError;
             setAcceptedMatches(data || []);
@@ -177,7 +186,14 @@ const Radar: React.FC = () => {
                     fetchRadar();
                     fetchIncoming();
                     fetchBroadcasts();
-                    fetchAcceptedMatches();
+                    fetchAcceptedMatches(); // This will re-fetch and get latest results
+                }
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'match_results' },
+                () => {
+                    fetchAcceptedMatches(); // Update results when claims come in
                 }
             )
             .subscribe();
@@ -388,19 +404,36 @@ const Radar: React.FC = () => {
                                             ? (match.acceptor || match.opponent)
                                             : match.challenger;
 
+                                        const resultData = Array.isArray(match.result) ? match.result[0] : match.result;
+
+                                        const myClaim = resultData ? (isCreator ? resultData.player1_claim : resultData.player2_claim) : null;
+                                        const opponentClaim = resultData ? (isCreator ? resultData.player2_claim : resultData.player1_claim) : null;
+
+                                        const isVerified = resultData?.is_verified;
+                                        const amIWinner = isVerified && resultData.winner_id === user.id;
+
                                         return (
                                             <div
                                                 key={match.id}
-                                                className="bg-zinc-900 border-2 border-yellow-500/20 p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:border-yellow-500/40 transition-all duration-300 relative overflow-hidden"
+                                                className={`bg-zinc-900 border-2 p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-6 group transition-all duration-300 relative overflow-hidden ${isVerified
+                                                    ? (amIWinner ? 'border-green-500/50 hover:border-green-500' : 'border-red-500/50 hover:border-red-500')
+                                                    : 'border-yellow-500/20 hover:border-yellow-500/40'
+                                                    }`}
                                             >
-                                                <div className="absolute top-0 right-0 p-2 bg-yellow-500/10 text-yellow-500 text-[8px] font-black uppercase tracking-widest rounded-bl-xl">
-                                                    Match In Progress
+                                                <div className={`absolute top-0 right-0 p-2 text-[8px] font-black uppercase tracking-widest rounded-bl-xl ${isVerified
+                                                    ? (amIWinner ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500')
+                                                    : 'bg-yellow-500/10 text-yellow-500'
+                                                    }`}>
+                                                    {isVerified ? 'Match Complete' : 'Match In Progress'}
                                                 </div>
 
                                                 <div className="flex items-center gap-4">
                                                     <img
                                                         src={partner?.profile_photo || '/avatar-placeholder.png'}
-                                                        className="w-14 h-14 rounded-2xl object-cover border-2 border-yellow-500/20"
+                                                        className={`w-14 h-14 rounded-2xl object-cover border-2 ${isVerified
+                                                            ? (amIWinner ? 'border-green-500/20' : 'border-red-500/20')
+                                                            : 'border-yellow-500/20'
+                                                            }`}
                                                     />
                                                     <div>
                                                         <h5 className="font-black text-white uppercase text-base tracking-tight leading-none mb-1">
@@ -408,11 +441,14 @@ const Radar: React.FC = () => {
                                                         </h5>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
-                                                                <Trophy size={10} className="text-yellow-500/50" />
+                                                                <Trophy size={10} className={isVerified ? (amIWinner ? 'text-green-500/50' : 'text-red-500/50') : 'text-yellow-500/50'} />
                                                                 Level {Math.floor((partner?.elo || 800) / 400)}
                                                             </span>
                                                             <span className="w-1 h-1 bg-zinc-800 rounded-full"></span>
-                                                            <span className="text-[10px] text-yellow-500/70 font-black uppercase tracking-widest italic">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest italic ${isVerified
+                                                                ? (amIWinner ? 'text-green-500/70' : 'text-red-500/70')
+                                                                : 'text-yellow-500/70'
+                                                                }`}>
                                                                 {match.sport}
                                                             </span>
                                                         </div>
@@ -420,24 +456,52 @@ const Radar: React.FC = () => {
                                                 </div>
 
                                                 <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={() => {
-                                                            setReportingMatch(match);
-                                                            setReportType('win');
-                                                        }}
-                                                        className="flex-1 md:flex-none px-6 py-3 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-yellow-400 transition-all hover:scale-105 shadow-lg shadow-yellow-500/20"
-                                                    >
-                                                        REPORT WIN
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setReportingMatch(match);
-                                                            setReportType('loss');
-                                                        }}
-                                                        className="flex-1 md:flex-none px-6 py-3 bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-zinc-700 transition-all hover:border-white/20 border border-white/5"
-                                                    >
-                                                        REPORT LOSS
-                                                    </button>
+                                                    {isVerified ? (
+                                                        <div className={`flex items-center gap-3 px-6 py-3 rounded-2xl border ${amIWinner
+                                                            ? 'bg-green-500/10 border-green-500/20 text-green-500'
+                                                            : 'bg-red-500/10 border-red-500/20 text-red-500'
+                                                            }`}>
+                                                            {amIWinner ? <Trophy size={18} /> : <Frown size={18} />}
+                                                            <span className="font-black uppercase tracking-widest text-xs">
+                                                                {amIWinner ? 'Victory!' : 'Defeat'}
+                                                            </span>
+                                                            <span className="text-white font-bold text-sm ml-2">
+                                                                {resultData.score}
+                                                            </span>
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            {myClaim ? (
+                                                                <div className="px-6 py-3 bg-zinc-800 rounded-2xl flex items-center gap-2 border border-white/5">
+                                                                    <Loader2 size={14} className="animate-spin text-blue-500" />
+                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                                                                        Waiting for {partner?.name}...
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setReportingMatch(match);
+                                                                            setReportType('win');
+                                                                        }}
+                                                                        className="flex-1 md:flex-none px-6 py-3 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-yellow-400 transition-all hover:scale-105 shadow-lg shadow-yellow-500/20"
+                                                                    >
+                                                                        REPORT WIN
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            setReportingMatch(match);
+                                                                            setReportType('loss');
+                                                                        }}
+                                                                        className="flex-1 md:flex-none px-6 py-3 bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-zinc-700 transition-all hover:border-white/20 border border-white/5"
+                                                                    >
+                                                                        REPORT LOSS
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                         );
