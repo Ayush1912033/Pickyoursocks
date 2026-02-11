@@ -3,8 +3,9 @@ import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
 import StartMatchSidebar from '../components/StartMatchSidebar';
 import { supabase } from '../lib/supabase';
-import { Target, Users, Radio, Loader2, AlertCircle, Check, X } from 'lucide-react';
+import { Target, Users, Radio, Loader2, AlertCircle, Check, X, Trophy } from 'lucide-react';
 import { useNotification } from '../components/NotificationContext';
+import MatchResultModal from '../components/MatchResultModal';
 import { SPORTS } from '../constants';
 
 const Radar: React.FC = () => {
@@ -19,10 +20,15 @@ const Radar: React.FC = () => {
     const [players, setPlayers] = useState<any[]>([]);
     const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
     const [broadcasts, setBroadcasts] = useState<any[]>([]);
+    const [acceptedMatches, setAcceptedMatches] = useState<any[]>([]); // NEW: Active matches
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [challenging, setChallenging] = useState<string | null>(null);
     const [isAccepting, setIsAccepting] = useState<string | null>(null);
+
+    // Reporting state
+    const [reportingMatch, setReportingMatch] = useState<any | null>(null);
+    const [reportType, setReportType] = useState<'win' | 'loss' | null>(null);
 
     // 1. Handle Sport Selection Default
     useEffect(() => {
@@ -110,12 +116,51 @@ const Radar: React.FC = () => {
         }
     };
 
+    // 4.5 Fetch Accepted Matches (Active)
+    const fetchAcceptedMatches = async () => {
+        if (!user) return;
+
+        try {
+            const { data, error: fetchError } = await supabase
+                .from('match_requests')
+                .select(`
+                    *,
+                    challenger:profiles!match_requests_user_id_fkey (
+                        id,
+                        name,
+                        profile_photo,
+                        elo
+                    ),
+                    opponent:profiles!match_requests_opponent_id_fkey (
+                        id,
+                        name,
+                        profile_photo,
+                        elo
+                    ),
+                    acceptor:profiles!match_requests_accepted_by_fkey (
+                        id,
+                        name,
+                        profile_photo,
+                        elo
+                    )
+                `)
+                .eq('status', 'accepted')
+                .or(`user_id.eq.${user.id},accepted_by.eq.${user.id},opponent_id.eq.${user.id}`);
+
+            if (fetchError) throw fetchError;
+            setAcceptedMatches(data || []);
+        } catch (err) {
+            console.error('Accepted matches fetch error:', err);
+        }
+    };
+
     // 5. Trigger Fetch on Sport Change
     useEffect(() => {
         if (selectedSport && user) {
             fetchRadar();
             fetchIncoming();
             fetchBroadcasts();
+            fetchAcceptedMatches();
         }
     }, [selectedSport, user?.id]);
 
@@ -132,6 +177,7 @@ const Radar: React.FC = () => {
                     fetchRadar();
                     fetchIncoming();
                     fetchBroadcasts();
+                    fetchAcceptedMatches();
                 }
             )
             .subscribe();
@@ -216,6 +262,66 @@ const Radar: React.FC = () => {
         }
     };
 
+    // 10. Handle Result Submission
+    const handleResultSubmit = async (score: string) => {
+        if (!reportingMatch || !reportType || !user) return;
+
+        try {
+            // Determine roles
+            const isPlayer1 = user.id === reportingMatch.user_id;
+            const partnerId = isPlayer1
+                ? (reportingMatch.accepted_by || reportingMatch.opponent_id)
+                : reportingMatch.user_id;
+
+            const claimedWinnerId = reportType === 'win' ? user.id : partnerId;
+
+            const claimPayload = {
+                winner_id: claimedWinnerId,
+                score: score
+            };
+
+            // Check if result already exists
+            const { data: existingResult } = await supabase
+                .from('match_results')
+                .select('id')
+                .eq('match_id', reportingMatch.id)
+                .maybeSingle();
+
+            if (existingResult) {
+                const updateData = isPlayer1
+                    ? { player1_claim: claimPayload }
+                    : { player2_claim: claimPayload };
+
+                const { error: updateError } = await supabase
+                    .from('match_results')
+                    .update(updateData)
+                    .eq('match_id', reportingMatch.id);
+                if (updateError) throw updateError;
+            } else {
+                const insertData = {
+                    match_id: reportingMatch.id,
+                    sport: reportingMatch.sport,
+                    player1_id: reportingMatch.user_id,
+                    player2_id: reportingMatch.accepted_by || reportingMatch.opponent_id,
+                    [isPlayer1 ? 'player1_claim' : 'player2_claim']: claimPayload
+                };
+                const { error: insertError } = await supabase
+                    .from('match_results')
+                    .insert(insertData);
+                if (insertError) throw insertError;
+            }
+
+            showNotification('Result reported successfully!', 'success');
+            fetchAcceptedMatches();
+        } catch (err: any) {
+            console.error('Result reporting failed:', err);
+            showNotification('Failed to report result: ' + err.message, 'error');
+        } finally {
+            setReportingMatch(null);
+            setReportType(null);
+        }
+    };
+
     if (!user && authLoading) {
         return (
             <div className="min-h-screen bg-black text-white flex items-center justify-center">
@@ -267,6 +373,78 @@ const Radar: React.FC = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Active Engagements (Accepted Matches) */}
+                        {acceptedMatches.length > 0 && (
+                            <div className="space-y-4 animate-in slide-in-from-top-4 duration-500">
+                                <div className="flex items-center gap-2 text-yellow-500 px-2">
+                                    <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                                    <h4 className="text-sm font-black uppercase tracking-[0.2em] italic">Active Engagements</h4>
+                                </div>
+                                <div className="grid gap-4">
+                                    {acceptedMatches.map((match) => {
+                                        const isCreator = user.id === match.user_id;
+                                        const partner = isCreator
+                                            ? (match.acceptor || match.opponent)
+                                            : match.challenger;
+
+                                        return (
+                                            <div
+                                                key={match.id}
+                                                className="bg-zinc-900 border-2 border-yellow-500/20 p-6 rounded-[2rem] flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:border-yellow-500/40 transition-all duration-300 relative overflow-hidden"
+                                            >
+                                                <div className="absolute top-0 right-0 p-2 bg-yellow-500/10 text-yellow-500 text-[8px] font-black uppercase tracking-widest rounded-bl-xl">
+                                                    Match In Progress
+                                                </div>
+
+                                                <div className="flex items-center gap-4">
+                                                    <img
+                                                        src={partner?.profile_photo || '/avatar-placeholder.png'}
+                                                        className="w-14 h-14 rounded-2xl object-cover border-2 border-yellow-500/20"
+                                                    />
+                                                    <div>
+                                                        <h5 className="font-black text-white uppercase text-base tracking-tight leading-none mb-1">
+                                                            {partner?.name || 'Unknown Partner'}
+                                                        </h5>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
+                                                                <Trophy size={10} className="text-yellow-500/50" />
+                                                                Level {Math.floor((partner?.elo || 800) / 400)}
+                                                            </span>
+                                                            <span className="w-1 h-1 bg-zinc-800 rounded-full"></span>
+                                                            <span className="text-[10px] text-yellow-500/70 font-black uppercase tracking-widest italic">
+                                                                {match.sport}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        onClick={() => {
+                                                            setReportingMatch(match);
+                                                            setReportType('win');
+                                                        }}
+                                                        className="flex-1 md:flex-none px-6 py-3 bg-yellow-500 text-black rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-yellow-400 transition-all hover:scale-105 shadow-lg shadow-yellow-500/20"
+                                                    >
+                                                        REPORT WIN
+                                                    </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setReportingMatch(match);
+                                                            setReportType('loss');
+                                                        }}
+                                                        className="flex-1 md:flex-none px-6 py-3 bg-zinc-800 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-zinc-700 transition-all hover:border-white/20 border border-white/5"
+                                                    >
+                                                        REPORT LOSS
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Incoming Signals (Challenges) */}
                         {incomingRequests.length > 0 && (
@@ -497,6 +675,23 @@ const Radar: React.FC = () => {
                     </div>
                 </div>
             </main>
+
+            <MatchResultModal
+                isOpen={!!reportingMatch}
+                onClose={() => {
+                    setReportingMatch(null);
+                    setReportType(null);
+                }}
+                onSubmit={handleResultSubmit}
+                resultType={reportType}
+                opponentName={
+                    reportingMatch
+                        ? (user.id === reportingMatch.user_id
+                            ? (reportingMatch.acceptor || reportingMatch.opponent)?.name
+                            : reportingMatch.challenger?.name) || 'Unknown'
+                        : ''
+                }
+            />
         </div>
     );
 };

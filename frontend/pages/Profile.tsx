@@ -9,6 +9,7 @@ import Footer from '../components/Footer';
 import { supabase } from '../lib/supabase';
 import { uploadProfilePhoto } from '../lib/r2';
 import { useNotification } from '../components/NotificationContext';
+import { SPORTS } from '../constants';
 
 const Profile: React.FC = () => {
   const { showNotification } = useNotification();
@@ -61,6 +62,7 @@ const Profile: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState('');
   const [achievements, setAchievements] = useState('');
   const [region, setRegion] = useState('');
+  const [sports, setSports] = useState<string[]>([]); // NEW: Sports state
 
   /* =========================
      LOAD POSTS
@@ -91,6 +93,7 @@ const Profile: React.FC = () => {
     setTimeSlots((profileUser.time_slots || []).join(', '));
     setAchievements((profileUser.achievements || []).join('\n'));
     setRegion(profileUser.region || '');
+    setSports(profileUser.sports || []); // NEW: Sync sports
   };
 
   useEffect(() => {
@@ -130,6 +133,7 @@ const Profile: React.FC = () => {
           .map(a => a.trim())
           .filter(Boolean),
         region,
+        sports, // NEW: Include sports in update
       });
 
       showNotification('Profile updated successfully', 'success');
@@ -294,6 +298,51 @@ const Profile: React.FC = () => {
 
             <RenderField label="Available Days" value={availableDays} onChange={setAvailableDays} placeholder="e.g. Mon, Wed, Sat" />
             <RenderField label="Time Slots" value={timeSlots} onChange={setTimeSlots} placeholder="e.g. 6-8 PM" />
+
+            {/* Sports Selection */}
+            <div className="md:col-span-2">
+              <span className="text-gray-400 block text-sm mb-2">Sports:</span>
+              {isEditing ? (
+                <div className="flex flex-wrap gap-2">
+                  {SPORTS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        if (sports.includes(s.id)) {
+                          setSports(sports.filter((id) => id !== s.id));
+                        } else {
+                          setSports([...sports, s.id]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${sports.includes(s.id)
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-zinc-800 text-gray-400 border-white/5 hover:border-white/20'
+                        } border`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {sports.length > 0 ? (
+                    sports.map((sid) => {
+                      const s = SPORTS.find((x) => x.id === sid);
+                      return (
+                        <span
+                          key={sid}
+                          className="px-3 py-1 bg-blue-600/10 text-blue-500 rounded-full text-xs font-bold border border-blue-600/20"
+                        >
+                          {s?.name || sid}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="text-gray-600 italic">No sports selected</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="md:col-span-2">
