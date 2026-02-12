@@ -3,7 +3,7 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { MapPin, TrendingUp, Trophy, ArrowRight, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
-import { NearbyUser, SPORTS, ATHLETES } from '../constants';
+import { NearbyUser, SPORTS } from '../constants';
 import ErrorState from '../components/ErrorState';
 import { useAuth } from '../components/AuthContext';
 
@@ -27,38 +27,6 @@ const Rankings: React.FC = () => {
             setCurrentRegion(user.region);
         }
     }, [user]);
-    const [isSeeding, setIsSeeding] = useState(false);
-
-
-    const handleSeedData = async () => {
-        setIsSeeding(true);
-        try {
-            for (const athlete of ATHLETES) {
-                const email = `demo_${athlete.id}_${Date.now()}@example.com`;
-                await signup({
-                    email,
-                    name: athlete.name,
-                    sports: athlete.ratings ? Object.keys(athlete.ratings) : [athlete.sport.toLowerCase()],
-                    elo: athlete.rating,
-
-                    elo_ratings: athlete.ratings,
-                    reliability_score: 100,
-                    calibration_games_remaining: 5,
-                    rating_deviation: 350,
-                    region: 'Mumbai' // Seed as Mumbai users for demo
-                }, 'password123');
-                // Small delay to ensure order?
-                await new Promise(r => setTimeout(r, 500));
-            }
-            // After seeding, refetch (but we are logged in as last user, so page might reload via AuthContext)
-            window.location.reload();
-        } catch (err) {
-            console.error("Seeding failed:", err);
-            setError("Failed to seed demo users.");
-        } finally {
-            setIsSeeding(false);
-        }
-    };
 
     const fetchRankings = async () => {
         setIsLoading(true);
@@ -144,16 +112,19 @@ const Rankings: React.FC = () => {
                 {/* 2. Leaderboard Table */}
                 <div className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 bg-zinc-900/50 flex items-center justify-between">
-                        <h3 className="text-xl font-bold uppercase tracking-wide flex items-center gap-2">
-                            <Trophy className="text-yellow-500" size={20} />
-                            <input
-                                type="text"
-                                value={currentRegion}
-                                onChange={(e) => setCurrentRegion(e.target.value)}
-                                className="bg-transparent border-b border-white/20 focus:border-blue-600 outline-none w-48 text-white placeholder-gray-600 font-bold uppercase"
-                                placeholder="Enter Region..."
-                            />
-                            Leaderboard
+                        <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-4 py-2 rounded-full">
+                                <Trophy className="text-yellow-500" size={16} />
+                                <input
+                                    type="text"
+                                    value={currentRegion}
+                                    onChange={(e) => setCurrentRegion(e.target.value)}
+                                    className="bg-transparent border-none outline-none w-48 text-white placeholder-zinc-600 font-black italic uppercase text-2xl focus:ring-0"
+                                    placeholder="REGION..."
+                                />
+                            </div>
+                            <span className="text-zinc-500">/</span>
+                            <span>Leaderboard</span>
                         </h3>
 
                         <div className="flex gap-2">
@@ -252,15 +223,8 @@ const Rankings: React.FC = () => {
                             <Trophy className="mx-auto h-16 w-16 text-zinc-800 mb-4" />
                             <h3 className="text-lg font-bold text-white mb-2">Season Requires Players</h3>
                             <p className="text-gray-400 max-w-sm mx-auto mb-6">
-                                The leaderboard is currently empty. Generated demo users to see the ranking system in action.
+                                The leaderboard is currently empty. Be the first to claim the top spot in {currentRegion}!
                             </p>
-                            <button
-                                onClick={handleSeedData}
-                                disabled={isSeeding}
-                                className="bg-white text-black px-6 py-2 rounded-full font-bold uppercase tracking-wider hover:bg-gray-200 transition disabled:opacity-50"
-                            >
-                                {isSeeding ? 'Generating...' : 'Generate Demo Users'}
-                            </button>
                         </div>
                     )}
                 </div>
