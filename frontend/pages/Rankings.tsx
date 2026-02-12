@@ -3,31 +3,32 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { MapPin, TrendingUp, Trophy, ArrowRight, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
+import { supabase } from '../lib/supabase';
 import { NearbyUser } from '../constants';
 import ErrorState from '../components/ErrorState';
 
 // Mock rank data for the current user
-const MY_RANK = {
-    rank: 12,
-    location: 'Koramangala',
-    city: 'Bangalore',
-    tier: 'Intermediate II',
-    nextMilestone: 40,
-    nextTier: 'Advanced',
-    points: 1250,
-};
+// Mock rank data for the current user removed
+
 
 const Rankings: React.FC = () => {
     const [users, setUsers] = useState<NearbyUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [currentUser, setCurrentUser] = useState<NearbyUser | null>(null);
 
     const fetchRankings = async () => {
         setIsLoading(true);
         setError(null);
         try {
+            const { data: { user } } = await supabase.auth.getUser();
             const data = await api.getNearbyUsers();
             setUsers(data);
+
+            if (user) {
+                const me = data.find(u => u.id === user.id);
+                if (me) setCurrentUser(me);
+            }
         } catch (error) {
             console.error("Failed to fetch rankings:", error);
             setError("Failed to load leaderboard.");
@@ -55,52 +56,54 @@ const Rankings: React.FC = () => {
                 </div>
 
                 {/* 1. Hero Stat Card */}
-                <div className="relative overflow-hidden rounded-3xl bg-zinc-900 border border-white/10 p-8 md:p-12 mb-12 shadow-2xl">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-purple-900/20 opacity-50" />
-                    <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
+                {currentUser && (
+                    <div className="relative overflow-hidden rounded-3xl bg-zinc-900 border border-white/10 p-8 md:p-12 mb-12 shadow-2xl">
+                        <div className="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-purple-900/20 opacity-50" />
+                        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
 
-                    <div className="relative grid md:grid-cols-3 gap-8 items-center text-center md:text-left">
-                        {/* Local Rank */}
-                        <div className="space-y-2">
-                            <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Local Rank</div>
-                            <div className="flex items-center justify-center md:justify-start gap-3">
-                                <span className="text-6xl font-black italic tracking-tighter text-white">#{MY_RANK.rank}</span>
-                                <div className="text-left">
-                                    <span className="block text-xs font-bold text-gray-500">IN</span>
-                                    <span className="flex items-center gap-1 text-sm font-bold text-blue-400">
-                                        {MY_RANK.location} <MapPin size={12} />
-                                    </span>
+                        <div className="relative grid md:grid-cols-3 gap-8 items-center text-center md:text-left">
+                            {/* Local Rank */}
+                            <div className="space-y-2">
+                                <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Local Rank</div>
+                                <div className="flex items-center justify-center md:justify-start gap-3">
+                                    <span className="text-6xl font-black italic tracking-tighter text-white">#{currentUser.rank}</span>
+                                    <div className="text-left">
+                                        <span className="block text-xs font-bold text-gray-500">IN</span>
+                                        <span className="flex items-center gap-1 text-sm font-bold text-blue-400">
+                                            Your Area <MapPin size={12} />
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Tier */}
-                        <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-8 md:pt-0 md:pl-8">
-                            <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Current Tier</div>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tight text-white">{MY_RANK.tier}</h2>
-                            <p className="text-xs text-gray-500 font-medium">Top 15% of players in {MY_RANK.city}</p>
-                        </div>
-
-                        {/* Next Milestone */}
-                        <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-8 md:pt-0 md:pl-8">
-                            <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Milestone</div>
-                            <div className="flex items-center justify-center md:justify-start gap-2 text-green-400">
-                                <TrendingUp size={20} />
-                                <span className="text-2xl font-black italic">+{MY_RANK.nextMilestone} pts</span>
+                            {/* Tier */}
+                            <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-8 md:pt-0 md:pl-8">
+                                <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Current Tier</div>
+                                <h2 className="text-3xl font-black italic uppercase tracking-tight text-white">{currentUser.tier}</h2>
+                                <p className="text-xs text-gray-500 font-medium">{currentUser.points} Points</p>
                             </div>
-                            <p className="text-xs text-gray-400 flex items-center gap-1">
-                                to reach <span className="text-white font-bold">{MY_RANK.nextTier}</span> <ArrowRight size={10} />
-                            </p>
+
+                            {/* Next Milestone */}
+                            <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-8 md:pt-0 md:pl-8">
+                                <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Milestone</div>
+                                <div className="flex items-center justify-center md:justify-start gap-2 text-green-400">
+                                    <TrendingUp size={20} />
+                                    <span className="text-2xl font-black italic">Keep Playing</span>
+                                </div>
+                                <p className="text-xs text-gray-400 flex items-center gap-1">
+                                    to climb the ranks <ArrowRight size={10} />
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                )}
 
                 {/* 2. Leaderboard Table */}
                 <div className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 bg-zinc-900/50 flex items-center justify-between">
                         <h3 className="text-xl font-bold uppercase tracking-wide flex items-center gap-2">
                             <Trophy className="text-yellow-500" size={20} />
-                            {MY_RANK.location} Leaderboard
+                            Global Leaderboard
                         </h3>
                         <button className="text-xs font-bold uppercase tracking-widest text-blue-500 hover:text-white transition-colors">
                             View Global →
@@ -157,32 +160,34 @@ const Rankings: React.FC = () => {
                                                 {index === 0 ? 'Elite' : index < 3 ? 'Advanced' : 'Intermediate'}
                                             </td>
                                             <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                                {2500 - (index * 150)}
+                                                {user.points}
                                             </td>
                                         </tr>
                                     ))}
 
-                                    {/* Mock inserting the current user at #12 */}
-                                    <tr className="bg-blue-900/20 border-l-4 border-blue-500">
-                                        <td className="px-6 py-4 font-black italic text-blue-400">
-                                            #{MY_RANK.rank}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
-                                                <div>
-                                                    <div className="font-bold text-white">You</div>
-                                                    <div className="text-xs text-blue-400 font-bold uppercase tracking-wider">Intermediate II</div>
+                                    {/* Current User Highlight Row (if not in view) */}
+                                    {currentUser && !users.find((u, i) => u.id === currentUser.id && i < 10) && (
+                                        <tr className="bg-blue-900/20 border-l-4 border-blue-500">
+                                            <td className="px-6 py-4 font-black italic text-blue-400">
+                                                #{currentUser.rank}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
+                                                    <div>
+                                                        <div className="font-bold text-white max-w-[150px] truncate">{currentUser.name}</div>
+                                                        <div className="text-xs text-blue-400 font-bold uppercase tracking-wider">{currentUser.tier}</div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-300">
-                                            {MY_RANK.tier}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                            {MY_RANK.points}
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm font-medium text-gray-300">
+                                                {currentUser.tier}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-black italic text-white text-lg">
+                                                {currentUser.points}
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>

@@ -9,7 +9,7 @@ import MatchResultModal from '../components/MatchResultModal';
 import { SPORTS } from '../constants';
 
 const Radar: React.FC = () => {
-    const { user, isLoading: authLoading } = useAuth();
+    const { user, isLoading: authLoading, refreshProfile } = useAuth();
     const { showNotification } = useNotification();
 
     // Fallback sports if user has none
@@ -194,6 +194,7 @@ const Radar: React.FC = () => {
                 { event: '*', schema: 'public', table: 'match_results' },
                 () => {
                     fetchAcceptedMatches(); // Update results when claims come in
+                    refreshProfile(); // Refresh ELO
                 }
             )
             .subscribe();
