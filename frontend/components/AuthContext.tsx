@@ -28,6 +28,7 @@ export interface User {
 
   level?: string;
   elo?: number;
+  elo_ratings?: Record<string, number>; // Per-sport Elo ratings
   preferred_format?: string;
   experience_years?: number;
 
@@ -49,7 +50,7 @@ interface AuthContextType {
 
   login: (email: string, password: string) => Promise<void>;
   signup: (
-    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo'>,
+    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo' | 'elo_ratings' | 'region'>,
     password: string
   ) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
@@ -101,7 +102,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       return data;
     } catch (err) {
-      console.warn('PROFILE FETCH FAILED (using defaults):', err);
+      console.warn('PROFILE FETCH EXCEPTION:', err);
       return null;
     }
   };
@@ -113,38 +114,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     let mounted = true;
 
     const init = async () => {
-      console.log('AUTH INIT START');
-
+      // Check active session
       try {
-        // Add timeout to getSession
-        const sessionPromise = supabase.auth.getSession();
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('getSession timeout')), 8000)
-        );
-
-        const {
-          data: { session },
-        } = await Promise.race([sessionPromise, timeoutPromise]) as any;
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
 
         if (!mounted) return;
 
         if (session?.user) {
-          const sbUser = session.user;
-          console.log('SESSION FOUND:', sbUser.id);
+          console.log('SESSION FOUND:', session.user.email);
 
           // ⚡ profile is optional — never block auth
-          const profile = await fetchProfileSafe(sbUser.id);
-          console.log('PROFILE LOADED:', profile ? 'yes' : 'no');
+          const profile = await fetchProfileSafe(session.user.id);
 
           if (mounted) {
             setUser({
-              id: sbUser.id,
-              email: sbUser.email!,
+              id: session.user.id,
+              email: session.user.email!,
               ...(profile || { elo: 1200 }),
             });
           }
         } else {
-          console.log('NO SESSION FOUND');
           if (mounted) {
             setUser(null);
           }
@@ -210,7 +200,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Signup
   ----------------------- */
   const signup = async (
-    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo'>,
+    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo' | 'elo_ratings' | 'region'>,
     password: string
   ) => {
     const { data, error } = await supabase.auth.signUp({
@@ -232,6 +222,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         reliability_score: userData.reliability_score ?? 100,
         calibration_games_remaining: userData.calibration_games_remaining ?? 5,
         rating_deviation: userData.rating_deviation ?? 350,
+        elo_ratings: userData.elo_ratings ?? { [userData.sports?.[0] || 'general']: userData.elo ?? 800 },
+        region: userData.region, // NEW: Save region
       });
     }
   };
@@ -265,11 +257,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const { error } = await supabase
       .from('profiles')
-      .update({
+      .upsert({
+        id: user.id,
         ...updates,
         updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id);
+      });
 
     if (error) throw error;
 
