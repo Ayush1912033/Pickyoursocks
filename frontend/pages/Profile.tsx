@@ -25,8 +25,28 @@ const Profile: React.FC = () => {
   // If no userId param, show current user. If userId param, fetch that user.
   useEffect(() => {
     if (isOwnProfile) {
-      setProfileUser(currentUser);
-      setIsLoadingProfile(false);
+      // For own profile, fetch from DB to ensure freshness
+      if (currentUser?.id) {
+        setIsLoadingProfile(true);
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single()
+          .then(({ data, error }) => {
+            if (data) {
+              setProfileUser(data);
+            } else {
+              // Fallback to currentUser if DB fetch fails
+              setProfileUser(currentUser);
+              console.error("Error fetching profile:", error);
+            }
+            setIsLoadingProfile(false);
+          });
+      } else {
+        setProfileUser(currentUser);
+        setIsLoadingProfile(false);
+      }
     } else {
       setIsLoadingProfile(true);
       supabase
@@ -43,11 +63,36 @@ const Profile: React.FC = () => {
           setIsLoadingProfile(false);
         });
     }
-  }, [userId, currentUser, isOwnProfile]);
+  }, [userId, currentUser?.id, isOwnProfile]);
 
 
   const [posts, setPosts] = useState<any[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+
+  /* =========================
+     REFRESH PROFILE ON INTERVAL (OWN PROFILE ONLY)
+  ========================= */
+  useEffect(() => {
+    if (!isOwnProfile || !currentUser?.id) return;
+
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (data && !error) {
+          setProfileUser(data);
+        }
+      } catch (err) {
+        console.error('Profile refresh error:', err);
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [isOwnProfile, currentUser?.id]);
 
   /* =========================
      FORM STATE
@@ -109,7 +154,11 @@ const Profile: React.FC = () => {
 
   if (!currentUser && !userId) return <Navigate to="/auth" replace />;
   if (isLoadingProfile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
-  if (!profileUser && !isLoadingProfile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">User not found</div>;
+  if (!profileUser && !isLoadingProfile) {
+    // If it's own profile and no profile user, user likely logged out
+    if (isOwnProfile) return <Navigate to="/auth" replace />;
+    return <div className="min-h-screen bg-black text-white flex items-center justify-center">User not found</div>;
+  }
 
   /* =========================
      SAVE PROFILE
