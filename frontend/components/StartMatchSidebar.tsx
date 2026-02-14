@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { Clock, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useNotification } from './NotificationContext';
+import { SPORTS } from '../constants';
 
 const StartMatchSidebar: React.FC = () => {
     const { showNotification } = useNotification();
@@ -10,6 +11,7 @@ const StartMatchSidebar: React.FC = () => {
     const [isBroadcasting, setIsBroadcasting] = useState(false);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
+    const [selectedSport, setSelectedSport] = useState(user?.sports?.[0] || 'badminton');
 
     const handleBroadcast = async () => {
         if (!user) return;
@@ -26,7 +28,7 @@ const StartMatchSidebar: React.FC = () => {
         try {
             const { error } = await supabase.from('match_requests').insert({
                 user_id: user.id,
-                sport: user.sports?.[0] || 'badminton', // Default to first sport or badminton
+                sport: selectedSport,
                 scheduled_time: scheduledTime,
                 status: 'active'
             });
@@ -96,6 +98,30 @@ const StartMatchSidebar: React.FC = () => {
                             onChange={(e) => setTime(e.target.value)}
                             className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 pl-11 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none"
                         />
+                    </div>
+
+                    <div className="relative">
+                        <select
+                            value={selectedSport}
+                            onChange={(e) => setSelectedSport(e.target.value)}
+                            className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none appearance-none cursor-pointer"
+                        >
+                            {user?.sports && user.sports.length > 0 ? (
+                                user.sports.map(sid => {
+                                    const s = SPORTS.find(x => x.id === sid);
+                                    return <option key={sid} value={sid}>{s?.name || sid}</option>
+                                })
+                            ) : (
+                                SPORTS.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))
+                            )}
+                        </select>
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
                     </div>
                 </div>
             </div>

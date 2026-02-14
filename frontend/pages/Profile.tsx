@@ -9,6 +9,8 @@ import Footer from '../components/Footer';
 import { supabase } from '../lib/supabase';
 import { uploadProfilePhoto } from '../lib/r2';
 import { useNotification } from '../components/NotificationContext';
+import { SPORTS } from '../constants';
+import MatchHistory from '../components/MatchHistory';
 
 const Profile: React.FC = () => {
   const { showNotification } = useNotification();
@@ -53,6 +55,7 @@ const Profile: React.FC = () => {
   const [isEditing, setIsEditing] = useState(false); // NEW: Inline editing state
 
   const [username, setUsername] = useState('');
+  const [name, setName] = useState(''); // NEW: Full name state
   const [bio, setBio] = useState('');
   const [level, setLevel] = useState('');
   const [preferredFormat, setPreferredFormat] = useState('Singles');
@@ -61,6 +64,8 @@ const Profile: React.FC = () => {
   const [timeSlots, setTimeSlots] = useState('');
   const [achievements, setAchievements] = useState('');
   const [region, setRegion] = useState('');
+  const [sports, setSports] = useState<string[]>([]); // NEW: Sports state
+  const [selectedSport, setSelectedSport] = useState<string | null>(null); // NEW: Selected sport for viewing stats
 
   /* =========================
      LOAD POSTS
@@ -83,6 +88,7 @@ const Profile: React.FC = () => {
   const syncFormWithUser = () => {
     if (!profileUser) return;
     setUsername(profileUser.username || '');
+    setName(profileUser.name || '');
     setBio(profileUser.bio || '');
     setLevel(profileUser.level || '');
     setPreferredFormat(profileUser.preferred_format || 'Singles');
@@ -91,6 +97,10 @@ const Profile: React.FC = () => {
     setTimeSlots((profileUser.time_slots || []).join(', '));
     setAchievements((profileUser.achievements || []).join('\n'));
     setRegion(profileUser.region || '');
+    setSports(profileUser.sports || []); // NEW: Sync sports
+    if (!selectedSport && profileUser.sports?.length > 0) {
+      setSelectedSport(profileUser.sports[0]);
+    }
   };
 
   useEffect(() => {
@@ -113,6 +123,7 @@ const Profile: React.FC = () => {
     try {
       await updateUser({
         username: username.trim(),
+        name: name.trim(),
         bio,
         level,
         preferred_format: preferredFormat,
@@ -130,6 +141,7 @@ const Profile: React.FC = () => {
           .map(a => a.trim())
           .filter(Boolean),
         region,
+        sports, // NEW: Include sports in update
       });
 
       showNotification('Profile updated successfully', 'success');
@@ -218,10 +230,33 @@ const Profile: React.FC = () => {
         </div>
 
         {/* ================= STATS ================= */}
+        <div className="flex justify-center mb-6 gap-2">
+          {profileUser.sports?.map((s: string) => (
+            <button
+              key={s}
+              onClick={() => setSelectedSport(s)}
+              className={`px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider transition-all ${selectedSport === s ? 'bg-blue-600 text-white' : 'bg-zinc-800 text-gray-400 hover:bg-zinc-700'
+                }`}
+            >
+              {SPORTS.find(sp => sp.id === s)?.name || s}
+            </button>
+          ))}
+          {(!profileUser.sports || profileUser.sports.length === 0) && (
+            <span className="text-gray-500 text-sm italic">No sports selected</span>
+          )}
+        </div>
+
         <div className="grid grid-cols-3 gap-4 mb-12">
-          <div className="bg-zinc-900 p-6 rounded-xl text-center">
-            <p className="text-gray-500 text-sm uppercase tracking-wider">ELO</p>
-            <p className="text-3xl font-black italic">{profileUser.elo ?? 1200}</p>
+          <div className="bg-zinc-900 p-6 rounded-xl text-center border border-white/5 relative overflow-hidden group">
+            <div className="absolute inset-0 bg-blue-600/5 group-hover:bg-blue-600/10 transition-colors" />
+            <p className="text-gray-500 text-sm uppercase tracking-wider mb-1">
+              {selectedSport ? (SPORTS.find(s => s.id === selectedSport)?.name || selectedSport) : 'General'} ELO
+            </p>
+            <p className="text-3xl font-black italic text-white/90">
+              {selectedSport
+                ? (profileUser.elo_ratings?.[selectedSport] ?? profileUser.elo ?? 800)
+                : (profileUser.elo ?? 1200)}
+            </p>
           </div>
           <div className="bg-zinc-900 p-6 rounded-xl text-center">
             <p className="text-gray-500 text-sm uppercase tracking-wider">Exp</p>
@@ -249,16 +284,36 @@ const Profile: React.FC = () => {
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* Fields */}
+            <div className="md:col-span-2">
+              <span className="text-gray-400 block text-sm mb-1">Full Name:</span>
+              {isEditing && !profileUser.name ? (
+                <input
+                  className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your display name"
+                />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="font-bold text-xl text-white">{name || 'User'}</p>
+                  {isEditing && <span className="text-xs text-zinc-500 uppercase tracking-wider font-bold px-2 py-0.5 bg-zinc-800 rounded">Locked</span>}
+                </div>
+              )}
+            </div>
+
             <div>
               <span className="text-gray-400 block text-sm mb-1">Username:</span>
-              {isEditing ? (
+              {isEditing && !profileUser.username ? (
                 <input
                   className="w-full bg-black/50 border border-white/10 rounded-lg p-2 text-sm focus:border-blue-600 outline-none"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                 />
               ) : (
-                <p className="font-medium">@{username}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium">@{username}</p>
+                  {isEditing && <span className="text-xs text-zinc-500 uppercase tracking-wider font-bold px-2 py-0.5 bg-zinc-800 rounded">Locked</span>}
+                </div>
               )}
             </div>
 
@@ -294,6 +349,51 @@ const Profile: React.FC = () => {
 
             <RenderField label="Available Days" value={availableDays} onChange={setAvailableDays} placeholder="e.g. Mon, Wed, Sat" />
             <RenderField label="Time Slots" value={timeSlots} onChange={setTimeSlots} placeholder="e.g. 6-8 PM" />
+
+            {/* Sports Selection */}
+            <div className="md:col-span-2">
+              <span className="text-gray-400 block text-sm mb-2">Sports:</span>
+              {isEditing ? (
+                <div className="flex flex-wrap gap-2">
+                  {SPORTS.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => {
+                        if (sports.includes(s.id)) {
+                          setSports(sports.filter((id) => id !== s.id));
+                        } else {
+                          setSports([...sports, s.id]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${sports.includes(s.id)
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-zinc-800 text-gray-400 border-white/5 hover:border-white/20'
+                        } border`}
+                    >
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {sports.length > 0 ? (
+                    sports.map((sid) => {
+                      const s = SPORTS.find((x) => x.id === sid);
+                      return (
+                        <span
+                          key={sid}
+                          className="px-3 py-1 bg-blue-600/10 text-blue-500 rounded-full text-xs font-bold border border-blue-600/20"
+                        >
+                          {s?.name || sid}
+                        </span>
+                      );
+                    })
+                  ) : (
+                    <span className="text-gray-600 italic">No sports selected</span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="md:col-span-2">
@@ -347,6 +447,10 @@ const Profile: React.FC = () => {
             </div>
           )}
         </div>
+
+        {/* ================= MATCH HISTORY ================= */}
+        <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Match History</h2>
+        <MatchHistory userId={profileUser.id} />
 
         {/* ================= POSTS ================= */}
         <h2 className="text-3xl font-black italic uppercase tracking-tighter mb-6">Posts</h2>

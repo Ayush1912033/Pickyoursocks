@@ -195,7 +195,7 @@ const Navbar: React.FC = () => {
               to="/profile"
               className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-xs font-bold text-white hover:bg-blue-400 shadow-lg shadow-blue-500/20"
             >
-              {user.name?.[0].toUpperCase() || 'U'}
+              {(user.name || 'U')[0].toUpperCase()}
             </Link>
           ) : (
             <div className="flex items-center gap-4">
@@ -234,7 +234,7 @@ const Navbar: React.FC = () => {
             to="/profile"
             className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white"
           >
-            {user.name?.[0].toUpperCase()}
+            {(user.name || 'U')[0].toUpperCase()}
           </Link>
         ) : (
           <Link

@@ -88,6 +88,7 @@ export const ATHLETES: AthleteProfile[] = [
     name: 'User_7721',
     sport: 'Boxing',
     rating: 2450,
+    ratings: { 'boxing': 2450, 'mma': 2200 },
     image: '/avatar-1.png',
     bio: 'Heavyweight metrics: Top 5% punch velocity in region.'
   },
@@ -104,6 +105,7 @@ export const ATHLETES: AthleteProfile[] = [
     name: 'User_3382',
     sport: 'Football',
     rating: 1850,
+    ratings: { 'football': 1850, 'futsal': 1900 },
     image: '/avatar-3.png',
     bio: 'Midfield playmaker stats: 88% pass accuracy average.'
   }
@@ -207,6 +209,7 @@ export interface NearbyUser {
   distance: string; // e.g., "2 miles away"
   rank: number; // For the numbered list
   image: string;
+  rating?: number;
 }
 
 export const NEARBY_USERS: NearbyUser[] = [
@@ -237,7 +240,7 @@ export const NEARBY_USERS: NearbyUser[] = [
   {
     id: 'u4',
     name: 'ILAI TOPURIA',
-    sport: 'BOXING',
+    sport: 'Tennis',
     distance: '3.0 miles',
     rank: 4,
     image: 'https://i.pravatar.cc/150?u=ilia'
@@ -245,7 +248,7 @@ export const NEARBY_USERS: NearbyUser[] = [
   {
     id: 'u5',
     name: 'SEAN O\'MALLEY',
-    sport: 'STRIKING',
+    sport: 'Badminton',
     distance: '4.1 miles',
     rank: 5,
     image: 'https://i.pravatar.cc/150?u=sean'

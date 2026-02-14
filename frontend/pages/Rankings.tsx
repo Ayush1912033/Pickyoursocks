@@ -3,30 +3,36 @@ import Navbar from '../components/Navbar';
 import Footer from '../components/Footer';
 import { MapPin, TrendingUp, Trophy, ArrowRight, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
-import { NearbyUser } from '../constants';
+import { NearbyUser, SPORTS } from '../constants';
 import ErrorState from '../components/ErrorState';
+import { useAuth } from '../components/AuthContext';
 
-// Mock rank data for the current user
-const MY_RANK = {
-    rank: 12,
-    location: 'Koramangala',
-    city: 'Bangalore',
-    tier: 'Intermediate II',
-    nextMilestone: 40,
-    nextTier: 'Advanced',
-    points: 1250,
-};
+// Mock rank data removed
+
 
 const Rankings: React.FC = () => {
     const [users, setUsers] = useState<NearbyUser[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [selectedSport, setSelectedSport] = useState<string>('tennis');
+    const { signup, user } = useAuth();
+
+
+    // Default to Mumbai if user has no region set, as requested
+    const [currentRegion, setCurrentRegion] = useState(user?.region || 'Mumbai');
+
+    // Update region if user profile loads/changes (optional, but good for UX)
+    useEffect(() => {
+        if (user?.region) {
+            setCurrentRegion(user.region);
+        }
+    }, [user]);
 
     const fetchRankings = async () => {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await api.getNearbyUsers();
+            const data = await api.getNearbyUsers(selectedSport === 'All' ? undefined : selectedSport, currentRegion);
             setUsers(data);
         } catch (error) {
             console.error("Failed to fetch rankings:", error);
@@ -38,7 +44,7 @@ const Rankings: React.FC = () => {
 
     useEffect(() => {
         fetchRankings();
-    }, []);
+    }, [selectedSport, currentRegion]);
 
     return (
         <div className="min-h-screen bg-black text-white selection:bg-blue-600/30">
@@ -64,11 +70,13 @@ const Rankings: React.FC = () => {
                         <div className="space-y-2">
                             <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Local Rank</div>
                             <div className="flex items-center justify-center md:justify-start gap-3">
-                                <span className="text-6xl font-black italic tracking-tighter text-white">#{MY_RANK.rank}</span>
+                                <span className="text-6xl font-black italic tracking-tighter text-white">
+                                    #{users.findIndex(u => u.id === user?.id) !== -1 ? users.findIndex(u => u.id === user?.id) + 1 : '-'}
+                                </span>
                                 <div className="text-left">
                                     <span className="block text-xs font-bold text-gray-500">IN</span>
                                     <span className="flex items-center gap-1 text-sm font-bold text-blue-400">
-                                        {MY_RANK.location} <MapPin size={12} />
+                                        {currentRegion} <MapPin size={12} />
                                     </span>
                                 </div>
                             </div>
@@ -77,8 +85,12 @@ const Rankings: React.FC = () => {
                         {/* Tier */}
                         <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-8 md:pt-0 md:pl-8">
                             <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Current Tier</div>
-                            <h2 className="text-3xl font-black italic uppercase tracking-tight text-white">{MY_RANK.tier}</h2>
-                            <p className="text-xs text-gray-500 font-medium">Top 15% of players in {MY_RANK.city}</p>
+                            <h2 className="text-3xl font-black italic uppercase tracking-tight text-white">
+                                {user?.level || 'Unrated'}
+                            </h2>
+                            <p className="text-xs text-gray-500 font-medium">
+                                {user?.elo ? `Top ${(100 - (user.elo / 3000) * 100).toFixed(0)}%` : 'Unranked'} of players in {currentRegion}
+                            </p>
                         </div>
 
                         {/* Next Milestone */}
@@ -86,10 +98,12 @@ const Rankings: React.FC = () => {
                             <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Next Milestone</div>
                             <div className="flex items-center justify-center md:justify-start gap-2 text-green-400">
                                 <TrendingUp size={20} />
-                                <span className="text-2xl font-black italic">+{MY_RANK.nextMilestone} pts</span>
+                                <span className="text-2xl font-black italic">
+                                    +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100} pts
+                                </span>
                             </div>
                             <p className="text-xs text-gray-400 flex items-center gap-1">
-                                to reach <span className="text-white font-bold">{MY_RANK.nextTier}</span> <ArrowRight size={10} />
+                                to reach <span className="text-white font-bold">Next Tier</span> <ArrowRight size={10} />
                             </p>
                         </div>
                     </div>
@@ -98,13 +112,35 @@ const Rankings: React.FC = () => {
                 {/* 2. Leaderboard Table */}
                 <div className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden">
                     <div className="p-6 border-b border-white/5 bg-zinc-900/50 flex items-center justify-between">
-                        <h3 className="text-xl font-bold uppercase tracking-wide flex items-center gap-2">
-                            <Trophy className="text-yellow-500" size={20} />
-                            {MY_RANK.location} Leaderboard
+                        <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
+                            <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-4 py-2 rounded-full">
+                                <Trophy className="text-yellow-500" size={16} />
+                                <input
+                                    type="text"
+                                    value={currentRegion}
+                                    onChange={(e) => setCurrentRegion(e.target.value)}
+                                    className="bg-transparent border-none outline-none w-48 text-white placeholder-zinc-600 font-black italic uppercase text-2xl focus:ring-0"
+                                    placeholder="REGION..."
+                                />
+                            </div>
+                            <span className="text-zinc-500">/</span>
+                            <span>Leaderboard</span>
                         </h3>
-                        <button className="text-xs font-bold uppercase tracking-widest text-blue-500 hover:text-white transition-colors">
+
+                        <div className="flex gap-2">
+                            <select
+                                value={selectedSport}
+                                onChange={(e) => setSelectedSport(e.target.value)}
+                                className="bg-black/50 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-wider text-white px-3 py-1 outline-none focus:border-blue-600"
+                            >
+                                {SPORTS.map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        {/* <button className="text-xs font-bold uppercase tracking-widest text-blue-500 hover:text-white transition-colors">
                             View Global →
-                        </button>
+                        </button> */}
                     </div>
 
                     {error ? (
@@ -139,67 +175,63 @@ const Rankings: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
-                                    {users.map((user, index) => (
-                                        <tr key={user.id} className="hover:bg-white/5 transition-colors group">
-                                            <td className="px-6 py-4 font-black italic text-gray-500">
-                                                #{user.rank}
+                                    {users.map((rankedUser, index) => (
+                                        <tr
+                                            key={rankedUser.id}
+                                            className={`transition-colors group ${rankedUser.id === user?.id
+                                                ? 'bg-blue-900/20 border-l-4 border-blue-500'
+                                                : 'hover:bg-white/5 border-l-4 border-transparent'
+                                                }`}
+                                        >
+                                            <td className={`px-6 py-4 font-black italic ${rankedUser.id === user?.id ? 'text-blue-400' : 'text-gray-500'
+                                                }`}>
+                                                #{rankedUser.rank}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <img src={user.image} alt={user.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
+                                                    {rankedUser.id === user?.id ? (
+                                                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
+                                                    ) : (
+                                                        <img src={rankedUser.image} alt={rankedUser.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
+                                                    )}
                                                     <div>
-                                                        <div className="font-bold text-white group-hover:text-blue-500 transition-colors">{user.name}</div>
-                                                        <div className="text-xs text-gray-500 font-bold uppercase tracking-wider">{user.sport}</div>
+                                                        <div className={`font-bold ${rankedUser.id === user?.id ? 'text-white' : 'text-white group-hover:text-blue-500 transition-colors'
+                                                            }`}>
+                                                            {rankedUser.id === user?.id ? 'You' : rankedUser.name}
+                                                        </div>
+                                                        <div className={`text-xs font-bold uppercase tracking-wider ${rankedUser.id === user?.id ? 'text-blue-400' : 'text-gray-500'
+                                                            }`}>
+                                                            {rankedUser.sport}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 text-sm font-medium text-gray-400">
+                                            <td className={`px-6 py-4 text-sm font-medium ${rankedUser.id === user?.id ? 'text-gray-300' : 'text-gray-400'
+                                                }`}>
                                                 {index === 0 ? 'Elite' : index < 3 ? 'Advanced' : 'Intermediate'}
                                             </td>
                                             <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                                {2500 - (index * 150)}
+                                                {rankedUser.rating ?? 0}
                                             </td>
                                         </tr>
                                     ))}
-
-                                    {/* Mock inserting the current user at #12 */}
-                                    <tr className="bg-blue-900/20 border-l-4 border-blue-500">
-                                        <td className="px-6 py-4 font-black italic text-blue-400">
-                                            #{MY_RANK.rank}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
-                                                <div>
-                                                    <div className="font-bold text-white">You</div>
-                                                    <div className="text-xs text-blue-400 font-bold uppercase tracking-wider">Intermediate II</div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm font-medium text-gray-300">
-                                            {MY_RANK.tier}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                            {MY_RANK.points}
-                                        </td>
-                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     ) : (
                         <div className="py-20 text-center">
                             <Trophy className="mx-auto h-16 w-16 text-zinc-800 mb-4" />
-                            <h3 className="text-lg font-bold text-white mb-2">Season Starts Soon</h3>
-                            <p className="text-gray-400 max-w-sm mx-auto">
-                                The ladder is currently resetting. Check back later to see who claims the top spot.
+                            <h3 className="text-lg font-bold text-white mb-2">Season Requires Players</h3>
+                            <p className="text-gray-400 max-w-sm mx-auto mb-6">
+                                The leaderboard is currently empty. Be the first to claim the top spot in {currentRegion}!
                             </p>
                         </div>
                     )}
                 </div>
 
-            </main>
+            </main >
             <Footer />
-        </div>
+        </div >
     );
 };
 
