@@ -64,7 +64,7 @@ interface AuthContextType {
    Context
 ======================= */
 
-export const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /* =======================
    Provider
@@ -77,52 +77,34 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   /* -----------------------
      Fetch profile (WITH TIMEOUT)
   ----------------------- */
-  /* -----------------------
-     Fetch profile (WITH RETRY)
-  ----------------------- */
-  const fetchProfileSafe = async (userId: string, retries = 3): Promise<any> => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        // Set a 5 second timeout for each attempt
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-        );
+  const fetchProfileSafe = async (userId: string) => {
+    try {
+      // Set a 5 second timeout for profile fetch
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+      );
 
-        const fetchPromise = supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
 
-        const { data, error } = await Promise.race([
-          fetchPromise,
-          timeoutPromise,
-        ]) as any;
+      const { data, error } = await Promise.race([
+        fetchPromise,
+        timeoutPromise,
+      ]) as any;
 
-        if (error) {
-          console.warn(`PROFILE FETCH ATTEMPT ${i + 1} ERROR:`, error.message);
-          if (i === retries - 1) return null;
-          await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
-          continue;
-        }
-
-        if (data) return data;
-
-        // If no data but no error, maybe it's not ready? Retry.
-        if (i < retries - 1) {
-          console.warn(`PROFILE FETCH ATTEMPT ${i + 1}: No data found, retrying...`);
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-
+      if (error) {
+        console.warn('PROFILE FETCH ERROR:', error.message);
         return null;
+      }
 
       return data;
     } catch (err) {
       console.warn('PROFILE FETCH EXCEPTION:', err);
       return null;
     }
-    return null;
   };
 
   /* -----------------------
@@ -202,36 +184,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       subscription.unsubscribe();
     };
   }, []);
-
-  /* -----------------------
-     Realtime Profile Sync
-  ----------------------- */
-  useEffect(() => {
-    if (!user?.id) return;
-
-    console.log('Activating Realtime Profile Sync for:', user.id);
-
-    const channel = supabase
-      .channel(`profile-update-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log('REALTIME PROFILE UPDATE:', payload.new);
-          setUser((prev) => (prev ? { ...prev, ...payload.new } : prev));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
 
   /* -----------------------
      Email Login
@@ -329,19 +281,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
-  const contextValue: AuthContextType = {
-    user,
-    isLoading,
-    login,
-    signup,
-    loginWithGoogle,
-    logout,
-    updateUser,
-    refreshProfile,
-  };
-
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={{
+        user,
+        isLoading,
+        login,
+        signup,
+        loginWithGoogle,
+        logout,
+        updateUser,
+        refreshProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
