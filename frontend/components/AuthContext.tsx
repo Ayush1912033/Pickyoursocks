@@ -1,3 +1,5 @@
+
+
 import React, {
   createContext,
   useContext,
@@ -47,84 +49,144 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  profileError: string | null; // ADDED
+
+  login: (email: string, password: string) => Promise<void>;
+  signup: (
+    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo' | 'elo_ratings' | 'region'>,
+    password: string
+  ) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+
+  updateUser: (updates: Partial<User>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
+}
+
+/* =======================
+   Context
+======================= */
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+/* =======================
+   Provider
+======================= */
+
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   /* -----------------------
-     Fetch profile (WITH RETRY & TIMEOUT)
+     Fetch profile (WITH TIMEOUT)
   ----------------------- */
-  const fetchProfileSafe = async (userId: string, retries = 3, delay = 1000): Promise<any> => {
-    setProfileError(null);
-    for (let i = 0; i < retries; i++) {
+  const fetchProfileSafe = async (userId: string) => {
+    try {
+      // Set a 5 second timeout for profile fetch
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+      );
+
+      const fetchPromise = supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+
+      const { data, error } = await Promise.race([
+        fetchPromise,
+        timeoutPromise,
+      ]) as any;
+
+      if (error) {
+        console.warn('PROFILE FETCH ERROR:', error.message);
+        return null;
+      }
+
+      return data;
+    } catch (err) {
+      console.warn('PROFILE FETCH EXCEPTION:', err);
+      return null;
+    }
+  };
+
+  /* -----------------------
+     Init Auth (REFRESH SAFE)
+  ----------------------- */
+  useEffect(() => {
+    let mounted = true;
+
+    const init = async () => {
+      // Check active session
       try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-        );
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
 
-        const fetchPromise = supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', userId)
-          .maybeSingle();
+        if (!mounted) return;
 
-        const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
-        const { data, error } = result || {};
+        if (session?.user) {
+          console.log('SESSION FOUND:', session.user.email);
 
-        if (error) {
-          console.warn(`PROFILE FETCH ATTEMPT ${i + 1} ERROR:`, error.message || error);
-          if (i === retries - 1) {
-            setProfileError(`Failed to load profile: ${error.message || 'Unknown error'}`);
-            return null;
+          // ⚡ profile is optional — never block auth
+          const profile = await fetchProfileSafe(session.user.id);
+
+          if (mounted) {
+            setUser({
+              id: session.user.id,
+              email: session.user.email!,
+              ...(profile || { elo: 1200 }),
+            });
           }
-          await new Promise(res => setTimeout(res, delay * (i + 1)));
-          continue;
+        } else {
+          if (mounted) {
+            setUser(null);
+          }
         }
-
-        if (data) {
-          console.log('Profile fetch success:', data?.username);
-          return data;
+      } catch (err) {
+        console.error('AUTH INIT FAILED:', err);
+        if (mounted) {
+          setUser(null);
         }
-
-        // No data but no error: retry if attempts remain
-        if (i < retries - 1) {
-          await new Promise(res => setTimeout(res, delay * (i + 1)));
-          continue;
+      } finally {
+        if (mounted) {
+          console.log('AUTH INIT DONE - LOADING FALSE');
+          setIsLoading(false);
         }
-
-        return null;
-      } catch (err: any) {
-        console.warn(`PROFILE FETCH ATTEMPT ${i + 1} FAILED:`, err.message || err);
-        if (i === retries - 1) {
-          setProfileError(`Failed to load profile: ${err.message || 'Unknown error'}`);
-          return null;
-        }
-        await new Promise(res => setTimeout(res, delay * (i + 1)));
       }
-    }
-    return null;
-  };
-        if (data) {
-          console.log('Profile fetch success:', data?.username);
-          return data;
-        }
+    };
 
-        // No data but no error: retry if attempts remain
-        if (i < retries - 1) {
-          await new Promise(res => setTimeout(res, delay * (i + 1)));
-          continue;
-        }
+    init();
 
-        return null;
-      } catch (err: any) {
-        console.warn(`PROFILE FETCH ATTEMPT ${i + 1} FAILED:`, err.message || err);
-        if (i === retries - 1) {
-          setProfileError(`Failed to load profile: ${err.message || 'Unknown error'}`);
-          return null;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      console.log('AUTH EVENT:', _event);
+
+      if (!mounted) return;
+
+      if (session?.user) {
+        const sbUser = session.user;
+        const profile = await fetchProfileSafe(sbUser.id);
+
+        if (mounted) {
+          setUser({
+            id: sbUser.id,
+            email: sbUser.email!,
+            ...(profile || { elo: 1200 }),
+          });
         }
-        await new Promise(res => setTimeout(res, delay * (i + 1)));
+      } else {
+        if (mounted) setUser(null);
       }
-    }
-    return null;
-  };
+
+      setIsLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   /* -----------------------
      Email Login
   ----------------------- */
@@ -226,7 +288,6 @@ interface AuthContextType {
       value={{
         user,
         isLoading,
-        profileError, // EXPOSE ERROR
         login,
         signup,
         loginWithGoogle,
