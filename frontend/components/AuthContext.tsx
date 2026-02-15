@@ -47,6 +47,7 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  profileError: string | null; // ADDED
 
   login: (email: string, password: string) => Promise<void>;
   signup: (
@@ -73,38 +74,42 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [profileError, setProfileError] = useState<string | null>(null); // ADDED
 
   /* -----------------------
-     Fetch profile (WITH TIMEOUT)
+     Fetch profile (SIMPLIFIED)
   ----------------------- */
-  const fetchProfileSafe = async (userId: string) => {
-    try {
-      // Set a 5 second timeout for profile fetch
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-      );
+  const fetchProfileSafe = async (userId: string, retries = 3, delay = 1000) => {
+    setProfileError(null);
+    for (let i = 0; i < retries; i++) {
+      try {
+        console.log(`fetching profile attempt ${i + 1} for ${userId}`);
 
-      const fetchPromise = supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .maybeSingle();
+        // Direct fetch matches Diagnostic logic exactly
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle();
 
-      const { data, error } = await Promise.race([
-        fetchPromise,
-        timeoutPromise,
-      ]) as any;
+        if (error) throw error;
 
-      if (error) {
-        console.warn('PROFILE FETCH ERROR:', error.message);
-        return null;
+        console.log('Profile fetch success:', data?.username);
+        return data;
+
+      } catch (err: any) {
+        console.warn(`PROFILE FETCH ATTEMPT ${i + 1} FAILED:`, err.message || err);
+
+        if (i === retries - 1) {
+          console.error('ALL PROFILE FETCH ATTEMPTS FAILED');
+          setProfileError(`Failed to load profile: ${err.message || 'Unknown error'}`);
+          return null;
+        }
+        // Wait before retrying
+        await new Promise(res => setTimeout(res, delay * (i + 1)));
       }
-
-      return data;
-    } catch (err) {
-      console.warn('PROFILE FETCH EXCEPTION:', err);
-      return null;
     }
+    return null;
   };
 
   /* -----------------------
@@ -124,10 +129,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (session?.user) {
           console.log('SESSION FOUND:', session.user.email);
 
-          // ⚡ profile is optional — never block auth
-          const profile = await fetchProfileSafe(session.user.id);
+          // ADDED: Small delay to ensure session is "hot" (fixes race condition)
+          await new Promise(r => setTimeout(r, 500));
+
+          const profilePromise = fetchProfileSafe(session.user.id);
+          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(undefined), 30000));
+
+          const profile = await Promise.race([profilePromise, timeoutPromise]);
 
           if (mounted) {
+            // Only fall back to defaults if profile is explicitly null (likely new user)
+            // If undefined (timeout) or error, we might want to be careful, but for INIT we must set something.
             setUser({
               id: session.user.id,
               email: session.user.email!,
@@ -163,24 +175,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (session?.user) {
         const sbUser = session.user;
-        const profile = await fetchProfileSafe(sbUser.id);
+
+        // RACE CONDITION FIX FOR EVENT LISTENER TOO
+        const profilePromise = fetchProfileSafe(sbUser.id);
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(undefined), 20000));
+
+        const profile = await Promise.race([profilePromise, timeoutPromise]);
 
         if (mounted) {
-          setUser({
-            id: sbUser.id,
-            email: sbUser.email!,
-            ...(profile || { elo: 1200 }),
+          setUser(prev => {
+            if (profile) {
+              return {
+                id: sbUser.id,
+                email: sbUser.email!,
+                ...profile,
+              };
+            }
+            // If profile fetch failed, but we have a user (prev), KEEP PREV!
+            if (prev) {
+              console.warn('Profile refresh failed - keeping existing user state.');
+              return prev;
+            }
+            // No previous state? Then we have to use defaults.
+            return {
+              id: sbUser.id,
+              email: sbUser.email!,
+              elo: 1200,
+            };
           });
         }
       } else {
         if (mounted) setUser(null);
       }
 
-      setIsLoading(false);
+      if (mounted) setIsLoading(false);
     });
+
+    // DOOMSDAY FALLBACK: Force loading to stop after 8 seconds if everything else hangs
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        console.warn('⚠️ Safety timer triggered: Forcing app load.');
+        setIsLoading(false);
+      }
+    }, 15000);
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription.unsubscribe();
     };
   }, []);
@@ -286,6 +327,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       value={{
         user,
         isLoading,
+        profileError, // EXPOSE ERROR
         login,
         signup,
         loginWithGoogle,

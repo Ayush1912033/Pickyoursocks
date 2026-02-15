@@ -13,6 +13,8 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
+      // VitePWA disabled to prevent "mobile" behavior on desktop
+      /*
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
@@ -35,6 +37,7 @@ export default defineConfig(({ mode }) => {
           ]
         }
       })
+      */
     ],
     define: {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),

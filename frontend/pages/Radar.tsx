@@ -3,10 +3,26 @@ import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
 import StartMatchSidebar from '../components/StartMatchSidebar';
 import { supabase } from '../lib/supabase';
-import { Target, Users, Radio, Loader2, AlertCircle, Check, X, Trophy, Frown } from 'lucide-react';
+import { Target, Users, Radio, Loader2, AlertCircle, Check, X, Trophy, Frown, MapPin } from 'lucide-react';
 import { useNotification } from '../components/NotificationContext';
 import MatchResultModal from '../components/MatchResultModal';
 import { SPORTS } from '../constants';
+
+// Helper for distance calculation (meters)
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3; // Earth radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+        Math.cos(φ1) * Math.cos(φ2) *
+        Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+};
 
 const Radar: React.FC = () => {
     const { user, isLoading: authLoading } = useAuth();
@@ -25,6 +41,7 @@ const Radar: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [challenging, setChallenging] = useState<string | null>(null);
     const [isAccepting, setIsAccepting] = useState<string | null>(null);
+    const [isCheckingIn, setIsCheckingIn] = useState<string | null>(null);
 
     // Reporting state
     const [reportingMatch, setReportingMatch] = useState<any | null>(null);
@@ -278,7 +295,96 @@ const Radar: React.FC = () => {
         }
     };
 
-    // 10. Handle Result Submission
+
+    // 9.5 Handle Proximity Check-In
+    const handleCheckIn = async (match: any) => {
+        if (!user) return;
+
+        // 1. Check if Geolocation is available
+        if (!navigator.geolocation) {
+            showNotification('GPS is not supported by your browser.', 'error');
+            return;
+        }
+
+        setIsCheckingIn(match.id);
+
+        try {
+            // 2. Get current location - This triggers the Bumble-style permission popup
+            // IMPORTANT: Browsers only show this on SECURE (HTTPS) origins or localhost.
+            // When accessing via local IP (192.168.x.x), browsers BLOCK this prompt.
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+                navigator.geolocation.getCurrentPosition(resolve, reject, {
+                    enableHighAccuracy: true,
+                    timeout: 15000,
+                    maximumAge: 0
+                });
+            });
+
+            const { latitude, longitude } = position.coords;
+            const isCreator = user.id === match.user_id;
+
+            // 3. Update DB with current user's location
+            const updatePayload = isCreator
+                ? { challenger_lat: latitude, challenger_lng: longitude }
+                : { opponent_lat: latitude, opponent_lng: longitude };
+
+            const { data: updatedMatch, error: updateError } = await supabase
+                .from('match_requests')
+                .update(updatePayload)
+                .eq('id', match.id)
+                .select(`
+                    *,
+                    challenger:profiles!match_requests_user_id_fkey (*),
+                    opponent:profiles!match_requests_opponent_id_fkey (*),
+                    acceptor:profiles!match_requests_accepted_by_fkey (*)
+                `)
+                .single();
+
+            if (updateError) throw updateError;
+
+            // 4. Logic to verify proximity if both have checked in
+            const lat1 = updatedMatch.challenger_lat;
+            const lng1 = updatedMatch.challenger_lng;
+            const lat2 = updatedMatch.opponent_lat;
+            const lng2 = updatedMatch.opponent_lng;
+
+            if (lat1 && lat2) {
+                const dist = calculateDistance(lat1, lng1, lat2, lng2);
+
+                if (dist < 200) {
+                    const { error: verifyError } = await supabase
+                        .from('match_requests')
+                        .update({ proximity_verified: true })
+                        .eq('id', match.id);
+
+                    if (verifyError) throw verifyError;
+                    showNotification('Proximity Verified! Match is live. 📍', 'success');
+                } else {
+                    showNotification(`Too far: ${Math.round(dist)}m away. Must be < 200m!`, 'warning');
+                }
+            } else {
+                showNotification('Checked in! Waiting for your opponent. 📡', 'info');
+            }
+
+            fetchAcceptedMatches();
+        } catch (err: any) {
+            console.error('Check-in error:', err);
+            let errorMessage = "Check-in failed.";
+
+            if (err.code === 1) { // PERMISSION_DENIED
+                // Explicitly explain why the popup isn't appearing
+                errorMessage = "PERMISSION DENIED. Browsers (Chrome/Safari) only allow 'Location Permission' over HTTPS. Local IPs (192.168.x.x) are blocked. Please use an HTTPS tunnel (like ngrok) for mobile testing.";
+            } else if (err.code === 2) { // POSITION_UNAVAILABLE
+                errorMessage = "GPS signal lost. Please ensure your location services are enabled.";
+            } else if (err.code === 3) { // TIMEOUT
+                errorMessage = "Location request timed out. Please try again.";
+            }
+
+            showNotification('GPS Error: ' + errorMessage, 'error');
+        } finally {
+            setIsCheckingIn(null);
+        }
+    };
     const handleResultSubmit = async (score: string) => {
         if (!reportingMatch || !reportType || !user) return;
 
@@ -400,9 +506,12 @@ const Radar: React.FC = () => {
                                 <div className="grid gap-4">
                                     {acceptedMatches.map((match) => {
                                         const isCreator = user.id === match.user_id;
+                                        // Robust partner detection: try all joined profiles
                                         const partner = isCreator
                                             ? (match.acceptor || match.opponent)
                                             : match.challenger;
+
+                                        const partnerName = partner?.name || match.opponent?.name || match.challenger?.name || 'Partner';
 
                                         const resultData = Array.isArray(match.result) ? match.result[0] : match.result;
 
@@ -437,7 +546,7 @@ const Radar: React.FC = () => {
                                                     />
                                                     <div>
                                                         <h5 className="font-black text-white uppercase text-base tracking-tight leading-none mb-1">
-                                                            {partner?.name || 'Unknown Partner'}
+                                                            {partnerName}
                                                         </h5>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
@@ -470,16 +579,30 @@ const Radar: React.FC = () => {
                                                             </span>
                                                         </div>
                                                     ) : (
-                                                        <>
-                                                            {myClaim ? (
-                                                                <div className="px-6 py-3 bg-zinc-800 rounded-2xl flex items-center gap-2 border border-white/5">
-                                                                    <Loader2 size={14} className="animate-spin text-blue-500" />
-                                                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                                                                        Waiting for {partner?.name}...
-                                                                    </span>
-                                                                </div>
+                                                        <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                                                            {!match.proximity_verified ? (
+                                                                <button
+                                                                    disabled={isCheckingIn === match.id}
+                                                                    onClick={() => handleCheckIn(match)}
+                                                                    className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-500 transition-all hover:scale-105 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                                                                >
+                                                                    {isCheckingIn === match.id ? (
+                                                                        <Loader2 className="animate-spin" size={14} />
+                                                                    ) : (
+                                                                        <MapPin size={14} />
+                                                                    )}
+                                                                    {isCheckingIn === match.id ? 'VERIFYING...' : (
+                                                                        (isCreator ? match.challenger_lat : match.opponent_lat)
+                                                                            ? 'LOCATED - WAITING'
+                                                                            : 'CHECK IN'
+                                                                    )}
+                                                                </button>
                                                             ) : (
                                                                 <>
+                                                                    <div className="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-xl border border-green-500/20 mr-2">
+                                                                        <Check size={14} />
+                                                                        <span className="text-[10px] font-black uppercase tracking-widest">VERIFIED</span>
+                                                                    </div>
                                                                     <button
                                                                         onClick={() => {
                                                                             setReportingMatch(match);
@@ -500,7 +623,7 @@ const Radar: React.FC = () => {
                                                                     </button>
                                                                 </>
                                                             )}
-                                                        </>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
