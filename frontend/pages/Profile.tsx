@@ -35,6 +35,48 @@ const Profile: React.FC = () => {
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]);
 
+  // If no userId param, show current user. If userId param, fetch that user.
+  useEffect(() => {
+    if (isOwnProfile) {
+      // For own profile, fetch from DB to ensure freshness
+      if (currentUser?.id) {
+        setIsLoadingProfile(true);
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single()
+          .then(({ data, error }) => {
+            if (data) {
+              setProfileUser(data);
+            } else {
+              // Fallback to currentUser if DB fetch fails
+              setProfileUser(currentUser);
+              console.error("Error fetching profile:", error);
+            }
+            setIsLoadingProfile(false);
+          });
+      } else {
+        setProfileUser(currentUser);
+        setIsLoadingProfile(false);
+      }
+    } else {
+      setIsLoadingProfile(true);
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+        .then(({ data, error }) => {
+          if (data) {
+            setProfileUser(data);
+          } else {
+            console.error("Error fetching profile:", error);
+          }
+          setIsLoadingProfile(false);
+        });
+    }
+  }, [userId, currentUser?.id, isOwnProfile]);
   // Social State
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
   const [followers, setFollowers] = useState<any[]>([]);
@@ -42,6 +84,31 @@ const Profile: React.FC = () => {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [activeChatFriend, setActiveChatFriend] = useState<any>(null);
+
+  /* =========================
+     REFRESH PROFILE ON INTERVAL (OWN PROFILE ONLY)
+  ========================= */
+  useEffect(() => {
+    if (!isOwnProfile || !currentUser?.id) return;
+
+    const refreshInterval = setInterval(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', currentUser.id)
+          .single();
+
+        if (data && !error) {
+          setProfileUser(data);
+        }
+      } catch (err) {
+        console.error('Profile refresh error:', err);
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [isOwnProfile, currentUser?.id]);
 
   /* =========================
      FORM STATE
@@ -174,6 +241,13 @@ const Profile: React.FC = () => {
 
   useEffect(() => { syncFormWithUser(); }, [syncFormWithUser]);
 
+  if (!currentUser && !userId) return <Navigate to="/auth" replace />;
+  if (isLoadingProfile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
+  if (!profileUser && !isLoadingProfile) {
+    // If it's own profile and no profile user, user likely logged out
+    if (isOwnProfile) return <Navigate to="/auth" replace />;
+    return <div className="min-h-screen bg-black text-white flex items-center justify-center">User not found</div>;
+  }
   const handleSave = async () => {
     if (!currentUser) return;
     try {
