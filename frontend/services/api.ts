@@ -80,7 +80,6 @@ export const api = {
     /**
      * Fetch users nearby (for People Near You / Rankings)
      */
-<<<<<<< HEAD
     getNearbyUsers: async (sport?: string, region?: string): Promise<NearbyUser[]> => {
         let query = supabase
             .from('profiles')
@@ -125,28 +124,6 @@ export const api = {
             rank: index + 1,
             image: profile.profile_photo || '/avatar-placeholder.png',
             rating: (sport && profile.elo_ratings?.[sport]) ? profile.elo_ratings[sport] : (profile.elo || 1200)
-=======
-    /**
-     * Fetch users nearby (for People Near You / Rankings)
-     */
-    getNearbyUsers: async (): Promise<NearbyUser[]> => {
-        const { data, error } = await supabase.rpc('get_rankings');
-
-        if (error) {
-            console.error('Error fetching rankings:', error);
-            throw error;
-        }
-
-        return (data || []).map((user: any) => ({
-            id: user.id,
-            name: user.name || user.username || 'Athlete',
-            sport: user.sports && user.sports.length > 0 ? user.sports[0] : 'Athlete',
-            distance: '1.2 miles', // Placeholder as distance isn't calculated yet
-            rank: user.rank,
-            image: user.profile_photo || 'https://i.pravatar.cc/150?u=' + user.id,
-            points: user.elo,
-            tier: user.level || 'Unranked'
->>>>>>> 8c4c92a7cf4e427bfca4537a2ce21cf1249b6aae
         }));
     },
 
@@ -154,7 +131,6 @@ export const api = {
      * Fetch live match results for the ticker
      */
     getMatchResults: async (): Promise<MatchResult[]> => {
-<<<<<<< HEAD
         const { data, error } = await supabase
             .from('matches')
             .select(`
@@ -185,38 +161,5 @@ export const api = {
             eloChange: m.elo_change,
             score: m.score
         }));
-=======
-        await delay(SIMULATED_DELAY);
-        return MATCH_RESULTS;
-    },
-
-    /**
-     * Fetch match history for a specific user
-     */
-    getMatchHistory: async (userId: string): Promise<any[]> => {
-        const { data, error } = await supabase
-            .from('match_requests')
-            .select(`
-                *,
-                challenger:profiles!match_requests_user_id_fkey (id, name, profile_photo, elo),
-                opponent:profiles!match_requests_opponent_id_fkey (id, name, profile_photo, elo),
-                acceptor:profiles!match_requests_accepted_by_fkey (id, name, profile_photo, elo),
-                result:match_results(
-                    winner_id,
-                    score,
-                    is_verified
-                )
-            `)
-            .eq('status', 'completed')
-            .or(`user_id.eq.${userId},accepted_by.eq.${userId},opponent_id.eq.${userId}`)
-            .order('created_at', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching match history:', error);
-            throw error;
-        }
-
-        return data || [];
->>>>>>> 8c4c92a7cf4e427bfca4537a2ce21cf1249b6aae
     }
 };

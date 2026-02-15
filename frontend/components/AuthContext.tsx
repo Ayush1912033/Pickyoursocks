@@ -64,7 +64,7 @@ interface AuthContextType {
    Context
 ======================= */
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /* =======================
    Provider
@@ -329,19 +329,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
   };
 
+  const contextValue: AuthContextType = {
+    user,
+    isLoading,
+    login,
+    signup,
+    loginWithGoogle,
+    logout,
+    updateUser,
+    refreshProfile,
+  };
+
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isLoading,
-        login,
-        signup,
-        loginWithGoogle,
-        logout,
-        updateUser,
-        refreshProfile,
-      }}
-    >
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );
