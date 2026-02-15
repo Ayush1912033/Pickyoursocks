@@ -34,13 +34,24 @@ const Navbar: React.FC = () => {
       return;
     }
 
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, name, username, profile_photo')
-      .ilike('username', `%${query}%`)
-      .limit(5);
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, username, profile_photo')
+        .or(`username.ilike.%${query}%,name.ilike.%${query}%`)
+        .limit(5);
 
-    setSearchResults(data || []);
+      if (error) {
+        console.error('Search error:', error);
+        setSearchResults([]);
+        return;
+      }
+
+      setSearchResults(data || []);
+    } catch (err) {
+      console.error('Search exception:', err);
+      setSearchResults([]);
+    }
   };
 
   useEffect(() => {
@@ -125,12 +136,16 @@ const Navbar: React.FC = () => {
         <div className="flex items-center gap-6">
 
           {/* SEARCH COMPONENT */}
-          <div className="relative group">
+          <div className="relative" onMouseLeave={() => {
+            setIsSearchOpen(false);
+            setSearchResults([]);
+            setSearchQuery('');
+          }}>
             <div className={`flex items-center rounded-full transition-all duration-300 ease-out ${isSearchOpen ? 'w-64 px-3 py-2 bg-zinc-900 border border-white/10 shadow-lg' : 'w-8 h-8 justify-center cursor-pointer bg-transparent hover:bg-white/5'
               }`}>
               <Search
                 size={isSearchOpen ? 16 : 18}
-                className={`transition-colors duration-300 ${isSearchOpen ? 'text-blue-500' : 'text-white/40 group-hover:text-white'}`}
+                className={`transition-colors duration-300 ${isSearchOpen ? 'text-blue-500' : 'text-white/40 hover:text-white'}`}
                 onClick={() => {
                   if (!isSearchOpen) setIsSearchOpen(true);
                 }}
@@ -142,14 +157,6 @@ const Navbar: React.FC = () => {
                   placeholder="Search users..."
                   value={searchQuery}
                   onChange={(e) => handleSearch(e.target.value)}
-                  onBlur={() => {
-                    // Delay hiding to allow clicking results
-                    setTimeout(() => {
-                      setIsSearchOpen(false);
-                      setSearchResults([]);
-                      setSearchQuery('');
-                    }, 200);
-                  }}
                 />
               )}
             </div>
@@ -164,7 +171,9 @@ const Navbar: React.FC = () => {
                       navigate(`/profile/${result.id}`);
                       setIsSearchOpen(false);
                       setSearchResults([]);
+                      setSearchQuery('');
                     }}
+                    onMouseDown={(e) => e.preventDefault()}
                     className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 cursor-pointer transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">

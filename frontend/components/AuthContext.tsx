@@ -77,22 +77,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [profileError, setProfileError] = useState<string | null>(null); // ADDED
 
   /* -----------------------
-     Fetch profile (SIMPLIFIED)
-  ----------------------- */
-<<<<<<< HEAD
-  /* -----------------------
      Fetch profile (WITH RETRY)
   ----------------------- */
-  const fetchProfileSafe = async (userId: string, retries = 3): Promise<any> => {
-    for (let i = 0; i < retries; i++) {
-      try {
-        // Set a 5 second timeout for each attempt
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
-        );
-
-        const fetchPromise = supabase
-=======
   const fetchProfileSafe = async (userId: string, retries = 3, delay = 1000) => {
     setProfileError(null);
     for (let i = 0; i < retries; i++) {
@@ -101,41 +87,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
         // Direct fetch matches Diagnostic logic exactly
         const { data, error } = await supabase
->>>>>>> clone
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .maybeSingle();
 
-<<<<<<< HEAD
-        const { data, error } = await Promise.race([
-          fetchPromise,
-          timeoutPromise,
-        ]) as any;
-
-        if (error) {
-          console.warn(`PROFILE FETCH ATTEMPT ${i + 1} ERROR:`, error.message);
-          if (i === retries - 1) return null;
-          await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
-          continue;
-        }
-
-        if (data) return data;
-
-        // If no data but no error, maybe it's not ready? Retry.
-        if (i < retries - 1) {
-          console.warn(`PROFILE FETCH ATTEMPT ${i + 1}: No data found, retrying...`);
-          await new Promise(r => setTimeout(r, 1000));
-          continue;
-        }
-
-        return null;
-
-      } catch (err) {
-        console.warn(`PROFILE FETCH ATTEMPT ${i + 1} FAILED:`, err);
-        if (i === retries - 1) return null;
-        await new Promise(r => setTimeout(r, 1000));
-=======
         if (error) throw error;
 
         console.log('Profile fetch success:', data?.username);
@@ -151,7 +107,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         }
         // Wait before retrying
         await new Promise(res => setTimeout(res, delay * (i + 1)));
->>>>>>> clone
       }
     }
     return null;
