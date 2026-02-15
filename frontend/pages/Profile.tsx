@@ -241,13 +241,7 @@ const Profile: React.FC = () => {
 
   useEffect(() => { syncFormWithUser(); }, [syncFormWithUser]);
 
-  if (!currentUser && !userId) return <Navigate to="/auth" replace />;
-  if (isLoadingProfile) return <div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>;
-  if (!profileUser && !isLoadingProfile) {
-    // If it's own profile and no profile user, user likely logged out
-    if (isOwnProfile) return <Navigate to="/auth" replace />;
-    return <div className="min-h-screen bg-black text-white flex items-center justify-center">User not found</div>;
-  }
+
   const handleSave = async () => {
     if (!currentUser) return;
     try {
