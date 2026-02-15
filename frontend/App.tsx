@@ -1,5 +1,7 @@
 import React from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { useAuth } from './components/AuthContext';
+import { NotificationProvider } from './components/NotificationContext';
 
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -23,7 +25,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 /* ======================
    Home Page (PUBLIC)
 ====================== */
-const Home: React.FC = () => {
+const Landing: React.FC = () => {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-blue-600 selection:text-white">
       <Navbar />
@@ -49,8 +51,6 @@ const Home: React.FC = () => {
   );
 };
 
-import { NotificationProvider } from './components/NotificationContext';
-
 /* ======================
    App Router
  ====================== */
@@ -58,16 +58,9 @@ const App: React.FC = () => {
   return (
     <NotificationProvider>
       <Routes>
-        {/* Public Routes */}
-        <Route path="/" element={<Home />} />
-        <Route path="/auth" element={<Auth />} />
-        <Route path="/sports" element={<AllSports />} />
-        <Route path="/privacy" element={<PrivacyPolicy />} />
-        <Route path="/terms" element={<TermsOfService />} />
-
-        {/* Protected Routes */}
+        {/* Protected Root Feed (Instagram Style) */}
         <Route
-          path="/feed"
+          path="/"
           element={
             <ProtectedRoute>
               <Feed />
@@ -75,6 +68,17 @@ const App: React.FC = () => {
           }
         />
 
+        {/* Public Routes */}
+        <Route path="/landing" element={<Landing />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/sports" element={<AllSports />} />
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+
+        {/* Legacy/Redirects */}
+        <Route path="/feed" element={<Navigate to="/" replace />} />
+
+        {/* Other Protected Routes */}
         <Route
           path="/radar"
           element={

@@ -3,6 +3,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { AuthProvider } from './components/AuthContext';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -14,10 +15,12 @@ import { BrowserRouter } from 'react-router-dom';
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   </React.StrictMode>
 );
