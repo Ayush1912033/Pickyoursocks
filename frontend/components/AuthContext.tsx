@@ -226,7 +226,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         reliability_score: userData.reliability_score ?? 100,
         calibration_games_remaining: userData.calibration_games_remaining ?? 5,
         rating_deviation: userData.rating_deviation ?? 350,
-        elo_ratings: userData.elo_ratings ?? { [userData.sports?.[0] || 'general']: userData.elo ?? 800 },
+        elo_ratings: userData.elo_ratings ?? { [userData.sports?.[0] || 'tennis']: userData.elo ?? 800 },
         region: userData.region, // NEW: Save region
       });
     }
