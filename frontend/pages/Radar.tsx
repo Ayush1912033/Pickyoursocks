@@ -93,7 +93,8 @@ const Radar: React.FC = () => {
                         id,
                         name,
                         profile_photo,
-                        elo
+                        elo,
+                        elo_ratings
                     )
                 `)
                 .eq('opponent_id', user.id)
@@ -119,7 +120,8 @@ const Radar: React.FC = () => {
                         id,
                         name,
                         profile_photo,
-                        elo
+                        elo,
+                        elo_ratings
                     )
                 `)
                 .eq('status', 'active')
@@ -146,19 +148,22 @@ const Radar: React.FC = () => {
                         id,
                         name,
                         profile_photo,
-                        elo
+                        elo,
+                        elo_ratings
                     ),
                     opponent:profiles!match_requests_opponent_id_fkey (
                         id,
                         name,
                         profile_photo,
-                        elo
+                        elo,
+                        elo_ratings
                     ),
                     acceptor:profiles!match_requests_accepted_by_fkey (
                         id,
                         name,
                         profile_photo,
-                        elo
+                        elo,
+                        elo_ratings
                     ),
                     result:match_results(
                         id,
@@ -183,6 +188,7 @@ const Radar: React.FC = () => {
     // 5. Trigger Fetch on Sport Change
     useEffect(() => {
         if (selectedSport && user) {
+            refreshProfile(); // Refresh current user's ELO/profile
             fetchRadar();
             fetchIncoming();
             fetchBroadcasts();
@@ -552,7 +558,7 @@ const Radar: React.FC = () => {
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[10px] text-gray-500 font-black uppercase tracking-widest flex items-center gap-1">
                                                                 <Trophy size={10} className={isVerified ? (amIWinner ? 'text-green-500/50' : 'text-red-500/50') : 'text-yellow-500/50'} />
-                                                                Level {Math.floor((partner?.elo || 800) / 400)}
+                                                                Level {Math.floor((partner?.elo_ratings?.[match.sport] ?? partner?.elo ?? 800) / 400)}
                                                             </span>
                                                             <span className="w-1 h-1 bg-zinc-800 rounded-full"></span>
                                                             <span className={`text-[10px] font-black uppercase tracking-widest italic ${isVerified
@@ -654,7 +660,7 @@ const Radar: React.FC = () => {
                                                 />
                                                 <div>
                                                     <h5 className="font-bold text-white uppercase text-sm tracking-tight">
-                                                        {req.challenger?.name} <span className="text-blue-500 mx-1">•</span> Level {Math.floor((req.challenger?.elo || 800) / 400)}
+                                                        {req.challenger?.name} <span className="text-blue-500 mx-1">•</span> Level {Math.floor((req.challenger?.elo_ratings?.[req.sport] ?? req.challenger?.elo ?? 800) / 400)}
                                                     </h5>
                                                     <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-0.5">
                                                         Sent a challenge for <span className="text-white italic">{req.sport}</span>
@@ -718,7 +724,7 @@ const Radar: React.FC = () => {
                                                     </h5>
                                                     <div className="flex items-center gap-3 mt-1">
                                                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest flex items-center gap-1">
-                                                            <Target size={10} /> Elo: {b.challenger?.elo}
+                                                            <Target size={10} /> Elo: {b.challenger?.elo_ratings?.[b.sport] ?? b.challenger?.elo ?? 800}
                                                         </span>
                                                         {b.scheduled_time && (
                                                             <span className="text-[10px] font-black text-blue-500 uppercase tracking-widest bg-blue-500/10 px-2 py-0.5 rounded">
@@ -762,14 +768,31 @@ const Radar: React.FC = () => {
                         ) : error ? (
                             <div className="bg-red-500/10 border border-red-500/20 p-12 rounded-3xl text-center space-y-4">
                                 <AlertCircle className="text-red-500 mx-auto" size={48} />
-                                <h4 className="text-xl font-bold text-white">Interference Detected</h4>
-                                <p className="text-gray-400 max-w-xs mx-auto text-sm">{error}</p>
-                                <button
-                                    onClick={fetchRadar}
-                                    className="px-8 py-3 bg-red-500 text-white font-black uppercase tracking-widest rounded-xl hover:bg-red-400 transition-all"
-                                >
-                                    Retry Scan
-                                </button>
+                                <h4 className="text-xl font-bold text-white">
+                                    {error.includes('lat') ? 'Location Data Required' : 'Interference Detected'}
+                                </h4>
+                                <p className="text-gray-400 max-w-xs mx-auto text-sm">
+                                    {error.includes('lat')
+                                        ? "Radar needs your coordinates to find nearby matches. Please update your location in your profile."
+                                        : error}
+                                </p>
+                                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                                    {error.includes('lat') ? (
+                                        <button
+                                            onClick={() => navigate('/profile')}
+                                            className="px-8 py-3 bg-blue-600 text-white font-black uppercase tracking-widest rounded-xl hover:bg-blue-500 transition-all"
+                                        >
+                                            Update Profile
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={fetchRadar}
+                                            className="px-8 py-3 bg-red-500 text-white font-black uppercase tracking-widest rounded-xl hover:bg-red-400 transition-all"
+                                        >
+                                            Retry Scan
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         ) : !players.length && !incomingRequests.length && !broadcasts.length ? (
                             <div className="bg-zinc-900/30 border-2 border-dashed border-white/5 rounded-[2rem] p-16 text-center space-y-6">
@@ -808,7 +831,7 @@ const Radar: React.FC = () => {
                                                 <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors uppercase tracking-tight">{player.name}</h3>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-xs font-black text-gray-500 uppercase tracking-widest">ELO:</span>
-                                                    <span className="text-sm font-black italic text-blue-500">{player.elo}</span>
+                                                    <span className="text-sm font-black italic text-blue-500">{player.elo_ratings?.[selectedSport] ?? player.elo ?? 800}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -848,7 +871,10 @@ const Radar: React.FC = () => {
 
                     {/* RIGHT: Sidebar */}
                     <div className="lg:col-span-4 space-y-8 sticky top-24">
-                        <StartMatchSidebar />
+                        <StartMatchSidebar
+                            selectedSport={selectedSport}
+                            onSportChange={setSelectedSport}
+                        />
 
                         {/* Radar Intelligence Tip */}
                         <div className="bg-gradient-to-br from-zinc-900 to-black border border-white/10 p-6 rounded-3xl space-y-4">

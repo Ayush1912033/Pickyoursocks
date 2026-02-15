@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { Navigate, useParams, useNavigate } from 'react-router-dom';
 import { Camera, User, Users, History, Layout, Settings, Save, X, MapPin } from 'lucide-react';
@@ -17,7 +16,7 @@ import { generateAndStoreKeys } from '../lib/chat';
 const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const { user: currentUser, updateUser, logout } = useAuth();
+  const { user: currentUser, updateUser } = useAuth();
   const { userId } = useParams();
 
   const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
@@ -35,48 +34,6 @@ const Profile: React.FC = () => {
   const [incomingRequests, setIncomingRequests] = useState<any[]>([]);
   const [outgoingRequests, setOutgoingRequests] = useState<any[]>([]);
 
-  // If no userId param, show current user. If userId param, fetch that user.
-  useEffect(() => {
-    if (isOwnProfile) {
-      // For own profile, fetch from DB to ensure freshness
-      if (currentUser?.id) {
-        setIsLoadingProfile(true);
-        supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single()
-          .then(({ data, error }) => {
-            if (data) {
-              setProfileUser(data);
-            } else {
-              // Fallback to currentUser if DB fetch fails
-              setProfileUser(currentUser);
-              console.error("Error fetching profile:", error);
-            }
-            setIsLoadingProfile(false);
-          });
-      } else {
-        setProfileUser(currentUser);
-        setIsLoadingProfile(false);
-      }
-    } else {
-      setIsLoadingProfile(true);
-      supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-        .then(({ data, error }) => {
-          if (data) {
-            setProfileUser(data);
-          } else {
-            console.error("Error fetching profile:", error);
-          }
-          setIsLoadingProfile(false);
-        });
-    }
-  }, [userId, currentUser?.id, isOwnProfile]);
   // Social State
   const [mutualFriends, setMutualFriends] = useState<any[]>([]);
   const [followers, setFollowers] = useState<any[]>([]);
@@ -84,31 +41,6 @@ const Profile: React.FC = () => {
 
   const [posts, setPosts] = useState<any[]>([]);
   const [activeChatFriend, setActiveChatFriend] = useState<any>(null);
-
-  /* =========================
-     REFRESH PROFILE ON INTERVAL (OWN PROFILE ONLY)
-  ========================= */
-  useEffect(() => {
-    if (!isOwnProfile || !currentUser?.id) return;
-
-    const refreshInterval = setInterval(async () => {
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUser.id)
-          .single();
-
-        if (data && !error) {
-          setProfileUser(data);
-        }
-      } catch (err) {
-        console.error('Profile refresh error:', err);
-      }
-    }, 30000); // Refresh every 30 seconds
-
-    return () => clearInterval(refreshInterval);
-  }, [isOwnProfile, currentUser?.id]);
 
   /* =========================
      FORM STATE
@@ -127,6 +59,8 @@ const Profile: React.FC = () => {
   const [sports, setSports] = useState<string[]>([]);
   const [selectedSport, setSelectedSport] = useState<string | null>(null);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
 
   /* =========================
      FETCH DATA
@@ -212,6 +146,13 @@ const Profile: React.FC = () => {
         if (outReq) setOutgoingRequests(outReq);
       }
 
+      // 6. Chat Keys
+      if (isOwnProfile && currentUser && !profileUser?.public_key) {
+        if (!localStorage.getItem('pys_chat_private_key')) {
+          generateAndStoreKeys(currentUser.id).catch(console.error);
+        }
+      }
+
     } catch (err) {
       console.error('PROFILE LOAD ERROR:', err);
     } finally {
@@ -237,10 +178,11 @@ const Profile: React.FC = () => {
     setAchievements((profileUser.achievements || []).join('\n'));
     setRegion(profileUser.region || '');
     setSports(profileUser.sports || []);
+    setLat(profileUser.lat || null);
+    setLng(profileUser.lng || null);
   }, [profileUser]);
 
   useEffect(() => { syncFormWithUser(); }, [syncFormWithUser]);
-
 
   const handleSave = async () => {
     if (!currentUser) return;
@@ -256,6 +198,8 @@ const Profile: React.FC = () => {
         time_slots: timeSlots.split(',').map(s => s.trim()).filter(Boolean),
         achievements: achievements.split('\n').map(a => a.trim()).filter(Boolean),
         region,
+        lat,
+        lng,
         updated_at: new Date().toISOString(),
       };
 
@@ -269,10 +213,7 @@ const Profile: React.FC = () => {
   };
 
   const detectLocation = async () => {
-    console.log('Detecting location...');
-
     const fallbackToIP = async () => {
-      console.log('Falling back to IP-based detection...');
       try {
         const response = await fetch('https://ipapi.co/json/');
         const data = await response.json();
@@ -293,27 +234,22 @@ const Profile: React.FC = () => {
     }
 
     setIsDetectingLocation(true);
-
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-
         try {
           const response = await fetch(
             `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
             { headers: { 'Accept-Language': 'en' } }
           );
           const data = await response.json();
-
           if (data.address) {
             const addr = data.address;
             const city = addr.city || addr.town || addr.village || addr.suburb || addr.neighbourhood || addr.city_district || addr.county || addr.state;
-
-            if (city) {
-              setRegion(city);
-            } else {
-              setRegion(`${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
-            }
+            if (city) setRegion(city);
+            else setRegion(`${latitude.toFixed(2)}, ${longitude.toFixed(2)}`);
+            setLat(latitude);
+            setLng(longitude);
           }
         } catch (err) {
           console.error('Reverse geocoding failed:', err);
@@ -323,7 +259,6 @@ const Profile: React.FC = () => {
         }
       },
       async (error) => {
-        console.error('Geolocation error:', error);
         if (error.code === error.PERMISSION_DENIED) {
           await fallbackToIP();
         } else {
@@ -396,15 +331,6 @@ const Profile: React.FC = () => {
     }
   };
 
-  // Chat Keys
-  useEffect(() => {
-    if (isOwnProfile && currentUser && !profileUser?.public_key) {
-      if (!localStorage.getItem('pys_chat_private_key')) {
-        generateAndStoreKeys(currentUser.id).catch(console.error);
-      }
-    }
-  }, [isOwnProfile, currentUser, profileUser?.public_key]);
-
   if (!currentUser && !userId) return <Navigate to="/auth" replace />;
   if (isLoadingProfile) return <div className="min-h-screen bg-black flex items-center justify-center"><div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div></div>;
   if (!profileUser) return <div className="min-h-screen bg-black text-white flex items-center justify-center">User not found</div>;
@@ -414,7 +340,6 @@ const Profile: React.FC = () => {
       <Navbar />
 
       <main className="flex-grow pt-32 pb-20 px-6 max-w-4xl mx-auto w-full">
-        {/* HEADER SECTION */}
         <div className="flex flex-col items-center mb-12 text-center">
           <div className="relative group">
             <img
@@ -478,7 +403,6 @@ const Profile: React.FC = () => {
           {profileUser.bio && !isEditing && <p className="mt-4 max-w-md text-gray-300 leading-relaxed italic">"{profileUser.bio}"</p>}
         </div>
 
-        {/* EDITING FORM */}
         {isEditing && (
           <div className="mb-12 bg-zinc-900/50 border border-blue-500/20 p-8 rounded-3xl animate-in fade-in slide-in-from-top-4 duration-500">
             <h2 className="text-xl font-black italic uppercase tracking-tighter mb-8 flex items-center gap-2">
@@ -604,14 +528,12 @@ const Profile: React.FC = () => {
           </div>
         )}
 
-        {/* SPORTS SELECTOR */}
         <div className="flex justify-center mb-8 gap-3 flex-wrap">
           {profileUser.sports?.map((s: string) => (
             <button key={s} onClick={() => setSelectedSport(s)} className={`px-5 py-1.5 rounded-full text-xs font-black uppercase tracking-widest transition-all border ${selectedSport === s ? 'bg-blue-600 border-blue-500 text-white shadow-lg' : 'bg-black border-white/10 text-gray-500 hover:text-gray-300 hover:border-white/20'}`}>{SPORTS.find(sp => sp.id === s)?.name || s}</button>
           ))}
         </div>
 
-        {/* STATS GRID */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-16">
           <div className="bg-zinc-900 p-6 rounded-2xl text-center border border-white/5 relative overflow-hidden group">
             <div className="absolute top-0 left-0 w-1 h-full bg-blue-600 opacity-20 group-hover:opacity-100 transition-opacity" />
@@ -644,7 +566,6 @@ const Profile: React.FC = () => {
           </div>
         </div>
 
-        {/* CONTENT AREA */}
         <div className="min-h-[400px]">
           {viewMode === 'friends' && (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -665,52 +586,24 @@ const Profile: React.FC = () => {
                       <div className="text-center">
                         <p className="font-bold text-sm truncate max-w-[120px]">{friend.name || friend.username}</p>
                         <p className="text-[10px] text-gray-500">@{friend.username}</p>
+                        {isOwnProfile && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveChatFriend(friend);
+                            }}
+                            className="mt-2 w-full py-1.5 bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
+                          >
+                            Message
+                          </button>
+                        )}
                       </div>
-
-                      {isOwnProfile && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveChatFriend(friend);
-                          }}
-                          className="mt-2 w-full py-1.5 bg-blue-600/20 hover:bg-blue-600 text-blue-500 hover:text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
-                        >
-                          Message
-                        </button>
-                      )}
                     </div>
                   ))}
                 </div>
               ) : (
                 <div className="bg-zinc-900/50 border border-dashed border-white/10 p-12 rounded-3xl text-center">
                   <p className="text-gray-500 italic">No friends connected yet.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {viewMode === 'followers' && (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center gap-4 mb-8">
-                <div className="p-3 bg-purple-600/10 rounded-xl">
-                  <Users className="text-purple-500" size={24} />
-                </div>
-                <h2 className="text-3xl font-black italic uppercase tracking-tighter">Followers</h2>
-              </div>
-              {followers.length > 0 ? (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {followers.map(follower => (
-                    <div key={follower.id} onClick={() => navigate(`/profile/${follower.id}`)} className="bg-zinc-900 border border-white/5 p-4 rounded-2xl flex flex-col items-center gap-3 cursor-pointer hover:border-purple-500/50 hover:bg-zinc-800/80 transition-all group">
-                      <img src={follower.profile_photo || '/avatar-placeholder.png'} className="w-20 h-20 rounded-full object-cover border-2 border-transparent group-hover:border-purple-500 transition-all" />
-                      <div className="text-center">
-                        <p className="font-bold text-sm">@{follower.username}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-zinc-900/50 border border-dashed border-white/10 p-12 rounded-3xl text-center">
-                  <p className="text-gray-500 italic">No followers found.</p>
                 </div>
               )}
             </div>
@@ -764,7 +657,6 @@ const Profile: React.FC = () => {
           )}
         </div>
 
-        {/* PENDING REQUESTS (OWN ONLY) */}
         {isOwnProfile && incomingRequests.length > 0 && (
           <div className="mt-12 bg-zinc-900/40 p-8 rounded-3xl border border-yellow-500/10">
             <h3 className="text-yellow-500 font-bold uppercase tracking-widest text-xs mb-6 opacity-80">Pending Requests</h3>
@@ -785,24 +677,15 @@ const Profile: React.FC = () => {
           </div>
         )}
 
-        {isOwnProfile && (
-          <div className="mt-32 text-center pb-20 border-t border-white/5 pt-20">
-            <button onClick={logout} className="text-red-500/50 font-black uppercase tracking-[0.3em] text-[10px] hover:text-red-500 transition-all hover:tracking-[0.4em]">
-              Logout
-            </button>
-          </div>
+        {/* CHAT WIDGET */}
+        {activeChatFriend && (
+          <ChatWidget
+            friend={activeChatFriend}
+            onClose={() => setActiveChatFriend(null)}
+          />
         )}
       </main>
-
       <Footer />
-
-      {/* CHAT WIDGET */}
-      {activeChatFriend && (
-        <ChatWidget
-          friend={activeChatFriend}
-          onClose={() => setActiveChatFriend(null)}
-        />
-      )}
     </div>
   );
 };

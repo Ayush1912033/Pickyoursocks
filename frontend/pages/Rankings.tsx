@@ -15,7 +15,7 @@ const Rankings: React.FC = () => {
     const { user } = useAuth();
     const [currentUserRanked, setCurrentUserRanked] = useState<NearbyUser | null>(null);
 
-    // Default to Mumbai if user has no region set, as requested
+    // Default to Mumbai if user has no region set
     const [currentRegion, setCurrentRegion] = useState(user?.region || 'Mumbai');
 
     // Update region if user profile loads/changes
@@ -233,7 +233,7 @@ const Rankings: React.FC = () => {
 
             </main >
             <Footer />
-        </div >
+        </div>
     );
 };
 

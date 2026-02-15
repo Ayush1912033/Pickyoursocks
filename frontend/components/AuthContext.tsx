@@ -280,6 +280,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     if (profile) {
       setUser(prev => (prev ? { ...prev, ...profile } : prev));
+
+      // Ensure chat keys exist
+      if (!profile.public_key && !localStorage.getItem('pys_chat_private_key')) {
+        const { generateAndStoreKeys } = await import('../lib/chat');
+        generateAndStoreKeys(user.id).catch(console.error);
+      }
     }
   };
 

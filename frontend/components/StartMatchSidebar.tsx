@@ -5,13 +5,32 @@ import { supabase } from '../lib/supabase';
 import { useNotification } from './NotificationContext';
 import { SPORTS } from '../constants';
 
-const StartMatchSidebar: React.FC = () => {
+interface StartMatchSidebarProps {
+    selectedSport?: string;
+    onSportChange?: (sport: string) => void;
+}
+
+const StartMatchSidebar: React.FC<StartMatchSidebarProps> = ({
+    selectedSport: propSelectedSport,
+    onSportChange
+}) => {
     const { showNotification } = useNotification();
     const { user } = useAuth();
     const [isBroadcasting, setIsBroadcasting] = useState(false);
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
-    const [selectedSport, setSelectedSport] = useState(user?.sports?.[0] || 'badminton');
+
+    // Use prop if provided, otherwise internal state
+    const [internalSport, setInternalSport] = useState(user?.sports?.[0] || 'badminton');
+    const selectedSport = propSelectedSport || internalSport;
+
+    const handleSportChange = (sport: string) => {
+        if (onSportChange) {
+            onSportChange(sport);
+        } else {
+            setInternalSport(sport);
+        }
+    };
 
     const handleBroadcast = async () => {
         if (!user) return;
@@ -64,7 +83,7 @@ const StartMatchSidebar: React.FC = () => {
 
                 <p className="text-gray-400 text-xs uppercase tracking-widest font-bold mb-1">Your Rating</p>
                 <div className="text-4xl font-black text-white italic tracking-tighter drop-shadow-lg group-hover:scale-110 transition-transform duration-300">
-                    {user?.elo ?? '---'}
+                    {selectedSport ? (user?.elo_ratings?.[selectedSport] ?? user?.elo ?? 800) : (user?.elo ?? 1200)}
                 </div>
                 <div className="text-xs font-bold text-blue-400 bg-blue-500/10 inline-block px-2 py-1 rounded mt-2 uppercase tracking-wider">
                     {user?.rating_deviation && user.rating_deviation > 100 ? 'Provisional' : 'Established'}
@@ -103,7 +122,7 @@ const StartMatchSidebar: React.FC = () => {
                     <div className="relative">
                         <select
                             value={selectedSport}
-                            onChange={(e) => setSelectedSport(e.target.value)}
+                            onChange={(e) => handleSportChange(e.target.value)}
                             className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none appearance-none cursor-pointer"
                         >
                             {user?.sports && user.sports.length > 0 ? (
