@@ -49,213 +49,82 @@ interface AuthContextType {
   isLoading: boolean;
   profileError: string | null; // ADDED
 
-  login: (email: string, password: string) => Promise<void>;
-  signup: (
-    userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo' | 'elo_ratings' | 'region'>,
-    password: string
-  ) => Promise<void>;
-  loginWithGoogle: () => Promise<void>;
-  logout: () => Promise<void>;
-
-  updateUser: (updates: Partial<User>) => Promise<void>;
-  refreshProfile: () => Promise<void>;
-}
-
-/* =======================
-   Context
-======================= */
-
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-/* =======================
-   Provider
-======================= */
-
-export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [profileError, setProfileError] = useState<string | null>(null); // ADDED
-
   /* -----------------------
-     Fetch profile (WITH RETRY)
+     Fetch profile (WITH RETRY & TIMEOUT)
   ----------------------- */
-  const fetchProfileSafe = async (userId: string, retries = 3, delay = 1000) => {
+  const fetchProfileSafe = async (userId: string, retries = 3, delay = 1000): Promise<any> => {
     setProfileError(null);
     for (let i = 0; i < retries; i++) {
       try {
-        console.log(`fetching profile attempt ${i + 1} for ${userId}`);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+        );
 
-        // Direct fetch matches Diagnostic logic exactly
-        const { data, error } = await supabase
+        const fetchPromise = supabase
           .from('profiles')
           .select('*')
           .eq('id', userId)
           .maybeSingle();
 
-        if (error) throw error;
+        const result = await Promise.race([fetchPromise, timeoutPromise]) as any;
+        const { data, error } = result || {};
 
-        console.log('Profile fetch success:', data?.username);
-        return data;
+        if (error) {
+          console.warn(`PROFILE FETCH ATTEMPT ${i + 1} ERROR:`, error.message || error);
+          if (i === retries - 1) {
+            setProfileError(`Failed to load profile: ${error.message || 'Unknown error'}`);
+            return null;
+          }
+          await new Promise(res => setTimeout(res, delay * (i + 1)));
+          continue;
+        }
 
+        if (data) {
+          console.log('Profile fetch success:', data?.username);
+          return data;
+        }
+
+        // No data but no error: retry if attempts remain
+        if (i < retries - 1) {
+          await new Promise(res => setTimeout(res, delay * (i + 1)));
+          continue;
+        }
+
+        return null;
       } catch (err: any) {
         console.warn(`PROFILE FETCH ATTEMPT ${i + 1} FAILED:`, err.message || err);
-
         if (i === retries - 1) {
-          console.error('ALL PROFILE FETCH ATTEMPTS FAILED');
           setProfileError(`Failed to load profile: ${err.message || 'Unknown error'}`);
           return null;
         }
-        // Wait before retrying
         await new Promise(res => setTimeout(res, delay * (i + 1)));
       }
     }
     return null;
   };
-
-  /* -----------------------
-     Init Auth (REFRESH SAFE)
-  ----------------------- */
-  useEffect(() => {
-    let mounted = true;
-
-    const init = async () => {
-      // Check active session
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-
-        if (!mounted) return;
-
-        if (session?.user) {
-          console.log('SESSION FOUND:', session.user.email);
-
-          // ADDED: Small delay to ensure session is "hot" (fixes race condition)
-          await new Promise(r => setTimeout(r, 500));
-
-          const profilePromise = fetchProfileSafe(session.user.id);
-          const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(undefined), 30000));
-
-          const profile = await Promise.race([profilePromise, timeoutPromise]);
-
-          if (mounted) {
-            // Only fall back to defaults if profile is explicitly null (likely new user)
-            // If undefined (timeout) or error, we might want to be careful, but for INIT we must set something.
-            setUser({
-              id: session.user.id,
-              email: session.user.email!,
-              ...(profile || { elo: 1200 }),
-            });
-          }
-        } else {
-          if (mounted) {
-            setUser(null);
-          }
+        if (data) {
+          console.log('Profile fetch success:', data?.username);
+          return data;
         }
-      } catch (err) {
-        console.error('AUTH INIT FAILED:', err);
-        if (mounted) {
-          setUser(null);
+
+        // No data but no error: retry if attempts remain
+        if (i < retries - 1) {
+          await new Promise(res => setTimeout(res, delay * (i + 1)));
+          continue;
         }
-      } finally {
-        if (mounted) {
-          console.log('AUTH INIT DONE - LOADING FALSE');
-          setIsLoading(false);
+
+        return null;
+      } catch (err: any) {
+        console.warn(`PROFILE FETCH ATTEMPT ${i + 1} FAILED:`, err.message || err);
+        if (i === retries - 1) {
+          setProfileError(`Failed to load profile: ${err.message || 'Unknown error'}`);
+          return null;
         }
+        await new Promise(res => setTimeout(res, delay * (i + 1)));
       }
-    };
-
-    init();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      console.log('AUTH EVENT:', _event);
-
-      if (!mounted) return;
-
-      if (session?.user) {
-        const sbUser = session.user;
-
-        // RACE CONDITION FIX FOR EVENT LISTENER TOO
-        const profilePromise = fetchProfileSafe(sbUser.id);
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(undefined), 20000));
-
-        const profile = await Promise.race([profilePromise, timeoutPromise]);
-
-        if (mounted) {
-          setUser(prev => {
-            if (profile) {
-              return {
-                id: sbUser.id,
-                email: sbUser.email!,
-                ...profile,
-              };
-            }
-            // If profile fetch failed, but we have a user (prev), KEEP PREV!
-            if (prev) {
-              console.warn('Profile refresh failed - keeping existing user state.');
-              return prev;
-            }
-            // No previous state? Then we have to use defaults.
-            return {
-              id: sbUser.id,
-              email: sbUser.email!,
-              elo: 1200,
-            };
-          });
-        }
-      } else {
-        if (mounted) setUser(null);
-      }
-
-      if (mounted) setIsLoading(false);
-    });
-
-    // DOOMSDAY FALLBACK: Force loading to stop after 8 seconds if everything else hangs
-    const safetyTimer = setTimeout(() => {
-      if (mounted) {
-        console.warn('⚠️ Safety timer triggered: Forcing app load.');
-        setIsLoading(false);
-      }
-    }, 15000);
-
-    return () => {
-      mounted = false;
-      clearTimeout(safetyTimer);
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  /* -----------------------
-     Realtime Profile Sync
-  ----------------------- */
-  useEffect(() => {
-    if (!user?.id) return;
-
-    console.log('Activating Realtime Profile Sync for:', user.id);
-
-    const channel = supabase
-      .channel(`profile-update-${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'profiles',
-          filter: `id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log('REALTIME PROFILE UPDATE:', payload.new);
-          setUser((prev) => (prev ? { ...prev, ...payload.new } : prev));
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user?.id]);
-
+    }
+    return null;
+  };
   /* -----------------------
      Email Login
   ----------------------- */
