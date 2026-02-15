@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../components/AuthContext';
 import { SPORTS } from '../constants';
 import { User as UserIcon } from 'lucide-react';
@@ -20,8 +20,11 @@ const SKILL_LEVELS = [
 const Auth: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialMode = searchParams.get('mode');
+  const location = useLocation();
 
-  const [isLogin, setIsLogin] = useState(initialMode !== 'signup');
+  // Mode is 'signup' if mode=signup query OR path is /signup
+  const isSignupPath = location.pathname === '/signup' || initialMode === 'signup';
+  const [isLogin, setIsLogin] = useState(!isSignupPath);
   const navigate = useNavigate();
   const { login, signup, loginWithGoogle, isLoading, user } = useAuth();
 

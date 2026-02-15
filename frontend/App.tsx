@@ -52,25 +52,44 @@ const Landing: React.FC = () => {
 };
 
 /* ======================
+   Root Route Handler
+   - Checks auth status
+   - Renders Feed (if logged in) or Landing (if public)
+ ====================== */
+const RootHandler: React.FC = () => {
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  return user ? (
+    <ProtectedRoute>
+      <Feed />
+    </ProtectedRoute>
+  ) : (
+    <Landing />
+  );
+};
+
+/* ======================
    App Router
  ====================== */
 const App: React.FC = () => {
   return (
     <NotificationProvider>
       <Routes>
-        {/* Protected Root Feed (Instagram Style) */}
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <Feed />
-            </ProtectedRoute>
-          }
-        />
+        {/* Root Route: Smart Handler */}
+        <Route path="/" element={<RootHandler />} />
 
         {/* Public Routes */}
         <Route path="/landing" element={<Landing />} />
         <Route path="/auth" element={<Auth />} />
+        <Route path="/signup" element={<Auth />} />
         <Route path="/sports" element={<AllSports />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />

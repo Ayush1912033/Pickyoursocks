@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Navigate, useParams, useNavigate } from 'react-router-dom';
-import { Camera, User, Users, History, Layout, Settings, Save, X, MapPin } from 'lucide-react';
+import { Camera, User, Users, History, Layout, Settings, Save, X, MapPin, LogOut } from 'lucide-react';
 
 import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
@@ -16,7 +16,7 @@ import { generateAndStoreKeys } from '../lib/chat';
 const Profile: React.FC = () => {
   const navigate = useNavigate();
   const { showNotification } = useNotification();
-  const { user: currentUser, updateUser } = useAuth();
+  const { user: currentUser, updateUser, logout } = useAuth();
   const { userId } = useParams();
 
   const isOwnProfile = !userId || (currentUser && currentUser.id === userId);
@@ -361,10 +361,10 @@ const Profile: React.FC = () => {
           <p className="text-gray-400">@{profileUser.username}</p>
 
           {isOwnProfile && (
-            <div className="mt-4 flex gap-2">
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
               <button
                 onClick={() => setIsEditing(!isEditing)}
-                className={`py-2 px-8 rounded-full font-bold flex items-center gap-2 transition-all ${isEditing
+                className={`py-2 px-6 rounded-full font-bold flex items-center gap-2 transition-all ${isEditing
                   ? 'bg-zinc-800 text-white border border-white/10'
                   : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20'
                   }`}
@@ -376,12 +376,13 @@ const Profile: React.FC = () => {
               {isEditing && (
                 <button
                   onClick={handleSave}
-                  className="bg-green-600 hover:bg-green-500 py-2 px-8 rounded-full font-bold flex items-center gap-2 transition-all shadow-lg shadow-green-600/20"
+                  className="bg-green-600 hover:bg-green-500 py-2 px-6 rounded-full font-bold flex items-center gap-2 transition-all shadow-lg shadow-green-600/20"
                 >
                   <Save size={18} />
                   Save Changes
                 </button>
               )}
+
             </div>
           )}
 
@@ -683,6 +684,18 @@ const Profile: React.FC = () => {
             friend={activeChatFriend}
             onClose={() => setActiveChatFriend(null)}
           />
+        )}
+
+        {isOwnProfile && (
+          <div className="mt-16 flex justify-center pb-8 border-t border-white/5 pt-8">
+            <button
+              onClick={logout}
+              className="flex items-center gap-2 text-red-500 font-bold uppercase tracking-widest text-xs hover:text-red-400 transition-colors opacity-50 hover:opacity-100"
+            >
+              <LogOut size={16} />
+              Log Out
+            </button>
+          </div>
         )}
       </main>
       <Footer />

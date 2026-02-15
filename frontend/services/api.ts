@@ -35,7 +35,7 @@ export const api = {
         return data.map((post: any) => ({
             id: post.id,
             type: post.type || 'post',
-            sport: post.sport || 'General',
+            sport: post.sport || 'Tennis',
             title: post.title || 'New Post',
             description: post.content || '',
             time: new Date(post.created_at).toLocaleDateString(),
@@ -110,7 +110,7 @@ export const api = {
         return filteredData.map((profile: any, index: number) => ({
             id: profile.id,
             name: profile.name || profile.username || 'User',
-            sport: sport && sport !== 'All' ? sport : (profile.sports?.[0] || 'General'),
+            sport: sport && sport !== 'All' ? sport : (profile.sports?.[0] || 'Tennis'),
             distance: region ? 'Nearby' : (profile.region || 'Unknown'),
             rank: index + 1,
             image: profile.profile_photo || '/avatar-placeholder.png',

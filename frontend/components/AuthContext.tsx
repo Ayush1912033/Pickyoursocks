@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { supabase } from '../lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 /* =======================
    Types
@@ -75,6 +76,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   /* -----------------------
      Fetch profile (WITH TIMEOUT)
@@ -237,7 +239,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/feed`,
+        redirectTo: window.location.origin,
       },
     });
     if (error) throw error;
@@ -247,8 +249,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
      Logout
   ----------------------- */
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    setIsLoading(true);
+    try {
+      // 1. Navigate AWAY from protected routes first
+      navigate('/landing');
+
+      // 2. Clear Supabase session
+      await supabase.auth.signOut();
+
+      // 3. Update local state (triggers re-render)
+      setUser(null);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   /* -----------------------

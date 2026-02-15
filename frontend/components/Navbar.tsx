@@ -7,6 +7,7 @@ import {
   User,
   ChevronDown,
   PlusSquare,
+  LogOut,
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 
@@ -23,7 +24,7 @@ const Navbar: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
 
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -239,19 +240,35 @@ const Navbar: React.FC = () => {
           Pickyoursocks
         </span>
         {user ? (
-          <Link
-            to="/profile"
-            className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white"
-          >
-            {(user.name || 'U')[0].toUpperCase()}
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={logout}
+              className="text-gray-400 hover:text-white transition-colors"
+            >
+              <LogOut size={18} />
+            </button>
+            <Link
+              to="/profile"
+              className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white"
+            >
+              {(user.name || 'U')[0].toUpperCase()}
+            </Link>
+          </div>
         ) : (
-          <Link
-            to="/auth?mode=login"
-            className="text-xs font-bold uppercase text-white"
-          >
-            Login
-          </Link>
+          <div className="flex items-center gap-3">
+            <Link
+              to="/auth?mode=login"
+              className="text-[11px] font-bold uppercase text-white/70"
+            >
+              Login
+            </Link>
+            <Link
+              to="/auth?mode=signup"
+              className="text-[11px] font-black uppercase bg-white text-blue-600 px-3 py-1.5 rounded-lg shadow-lg"
+            >
+              Sign Up
+            </Link>
+          </div>
         )}
       </div>
 

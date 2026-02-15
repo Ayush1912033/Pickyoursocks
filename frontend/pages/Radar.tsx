@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ConfirmationModal from '../components/ConfirmationModal';
 import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
 import StartMatchSidebar from '../components/StartMatchSidebar';
@@ -46,6 +47,8 @@ const Radar: React.FC = () => {
     // Reporting state
     const [reportingMatch, setReportingMatch] = useState<any | null>(null);
     const [reportType, setReportType] = useState<'win' | 'loss' | null>(null);
+    const [matchToCancel, setMatchToCancel] = useState<string | null>(null);
+    const [isCancelling, setIsCancelling] = useState(false);
 
     // 1. Handle Sport Selection Default
     useEffect(() => {
@@ -299,6 +302,40 @@ const Radar: React.FC = () => {
         } catch (err: any) {
             console.error('Decline Error:', err);
             showNotification('Failed to decline.', 'error');
+        }
+    };
+
+    // 10. Cancel Accepted Match
+    // 10. Cancel Accepted Match (Optimistic UI Update)
+    const handleCancelMatch = async () => {
+        if (!matchToCancel) return;
+
+        setIsCancelling(true);
+        const matchId = matchToCancel;
+
+        // Optimistic Update: Remove immediately from UI
+        const previousMatches = [...acceptedMatches];
+        setAcceptedMatches(prev => prev.filter(m => m.id !== matchId));
+
+        try {
+            const { error: deleteError } = await supabase
+                .from('match_requests')
+                .delete()
+                .eq('id', matchId);
+
+            if (deleteError) throw deleteError;
+
+            showNotification('Match cancelled.', 'info');
+            // Background refresh to ensure consistency
+            fetchRadar();
+        } catch (err: any) {
+            console.error('Cancel Error:', err);
+            showNotification('Failed to cancel match: ' + err.message, 'error');
+            // Rollback on error
+            setAcceptedMatches(previousMatches);
+        } finally {
+            setIsCancelling(false);
+            setMatchToCancel(null);
         }
     };
 
@@ -588,22 +625,31 @@ const Radar: React.FC = () => {
                                                     ) : (
                                                         <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
                                                             {!match.proximity_verified ? (
-                                                                <button
-                                                                    disabled={isCheckingIn === match.id}
-                                                                    onClick={() => handleCheckIn(match)}
-                                                                    className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-500 transition-all hover:scale-105 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
-                                                                >
-                                                                    {isCheckingIn === match.id ? (
-                                                                        <Loader2 className="animate-spin" size={14} />
-                                                                    ) : (
-                                                                        <MapPin size={14} />
-                                                                    )}
-                                                                    {isCheckingIn === match.id ? 'VERIFYING...' : (
-                                                                        (isCreator ? match.challenger_lat : match.opponent_lat)
-                                                                            ? 'LOCATED - WAITING'
-                                                                            : 'CHECK IN'
-                                                                    )}
-                                                                </button>
+                                                                <>
+                                                                    <button
+                                                                        disabled={isCheckingIn === match.id}
+                                                                        onClick={() => handleCheckIn(match)}
+                                                                        className="w-full md:w-auto px-8 py-3 bg-blue-600 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-blue-500 transition-all hover:scale-105 shadow-lg shadow-blue-600/20 flex items-center justify-center gap-2"
+                                                                    >
+                                                                        {isCheckingIn === match.id ? (
+                                                                            <Loader2 className="animate-spin" size={14} />
+                                                                        ) : (
+                                                                            <MapPin size={14} />
+                                                                        )}
+                                                                        {isCheckingIn === match.id ? 'VERIFYING...' : (
+                                                                            (isCreator ? match.challenger_lat : match.opponent_lat)
+                                                                                ? 'LOCATED - WAITING'
+                                                                                : 'CHECK IN'
+                                                                        )}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => setMatchToCancel(match.id)}
+                                                                        className="w-full md:w-auto px-4 py-3 bg-zinc-800 text-gray-400 hover:text-red-500 hover:bg-red-500/10 border border-white/5 hover:border-red-500/20 rounded-2xl font-black uppercase tracking-widest text-[10px] transition-all flex items-center justify-center gap-2"
+                                                                        title="Cancel Match"
+                                                                    >
+                                                                        <X size={14} />
+                                                                    </button>
+                                                                </>
                                                             ) : (
                                                                 <>
                                                                     <div className="flex items-center gap-2 bg-green-500/10 text-green-500 px-4 py-2 rounded-xl border border-green-500/20 mr-2">
@@ -888,7 +934,18 @@ const Radar: React.FC = () => {
                         </div>
                     </div>
                 </div>
-            </main>
+            </main >
+
+            <ConfirmationModal
+                isOpen={!!matchToCancel}
+                onClose={() => setMatchToCancel(null)}
+                onConfirm={handleCancelMatch}
+                title="Cancel Match?"
+                message="Are you sure you want to cancel this match? This action cannot be undone."
+                confirmLabel="Yes, Cancel Match"
+                isProcessing={isCancelling}
+                variant="danger"
+            />
 
             <MatchResultModal
                 isOpen={!!reportingMatch}
@@ -906,7 +963,7 @@ const Radar: React.FC = () => {
                         : ''
                 }
             />
-        </div>
+        </div >
     );
 };
 export default Radar;
