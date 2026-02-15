@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
+import { api } from '../services/api';
 import { Trophy, Frown, Users } from 'lucide-react';
 
 interface MatchHistoryProps {
@@ -16,25 +16,10 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({ userId }) => {
 
     const fetchMatches = async () => {
         try {
-            const { data, error } = await supabase
-                .from('match_requests')
-                .select(`
-                    *,
-                    challenger:profiles!match_requests_user_id_fkey (id, name, profile_photo, elo),
-                    opponent:profiles!match_requests_opponent_id_fkey (id, name, profile_photo, elo),
-                    acceptor:profiles!match_requests_accepted_by_fkey (id, name, profile_photo, elo),
-                    result:match_results(
-                        winner_id,
-                        score,
-                        is_verified
-                    )
-                `)
-                .eq('status', 'completed')
-                .or(`user_id.eq.${userId},accepted_by.eq.${userId},opponent_id.eq.${userId}`)
-                .order('created_at', { ascending: false });
+            const data = await api.getMatchHistory(userId);
+            setMatches(data);
 
-            if (error) throw error;
-            setMatches(data || []);
+
         } catch (error) {
             console.error('Error fetching match history:', error);
         } finally {
