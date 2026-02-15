@@ -105,7 +105,7 @@ const Navbar: React.FC = () => {
       >
         {/* LEFT SECTION */}
         <div className="flex items-center gap-8">
-          <Link to={user ? '/feed' : '/'} className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-2 group">
             <div className="w-8 h-8 bg-white text-blue-600 rounded-sm flex items-center justify-center font-black italic shadow-lg group-hover:scale-105 transition-transform">
               P
             </div>
@@ -115,7 +115,7 @@ const Navbar: React.FC = () => {
           </Link>
 
           <div className="flex items-center gap-1 border-l border-white/10 pl-8 h-8">
-            <NavItem title="Feed" to="/feed" />
+            <NavItem title="Home" to="/" />
             <NavItem title="Radar" to="/radar" />
             <NavItem title="Ranking" to="/rankings" />
           </div>
@@ -263,12 +263,12 @@ const Navbar: React.FC = () => {
           </Link>
 
           <Link
-            to="/feed"
-            className={`flex flex-col items-center gap-1 ${isActive('/feed') ? 'text-blue-500' : 'text-gray-500'
+            to="/radar"
+            className={`flex flex-col items-center gap-1 ${isActive('/radar') ? 'text-blue-500' : 'text-gray-500'
               }`}
           >
             <Radio size={20} />
-            {isActive('/feed') && (
+            {isActive('/radar') && (
               <span className="w-1 h-1 rounded-full bg-blue-500"></span>
             )}
           </Link>

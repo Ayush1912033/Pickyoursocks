@@ -6,9 +6,6 @@ import {
     MatchResult
 } from '../constants';
 
-// Simulated network delay is no longer needed for real data, 
-// but we keep a small helper if we want to format dates etc.
-
 export const api = {
     /**
      * Fetch the main activity feed (posts, match requests, events)
@@ -39,7 +36,7 @@ export const api = {
             id: post.id,
             type: post.type || 'post',
             sport: post.sport || 'General',
-            title: post.title || 'New Post', // Fallback if title missing
+            title: post.title || 'New Post',
             description: post.content || '',
             time: new Date(post.created_at).toLocaleDateString(),
             author: post.user?.name || 'Unknown User',
@@ -54,14 +51,13 @@ export const api = {
      * Fetch "Radar" match opportunities
      */
     getRadarMatches: async (): Promise<MatchOpportunity[]> => {
-        // Assuming a 'match_requests' table exists
         const { data, error } = await supabase
             .from('match_requests')
             .select('*')
             .eq('status', 'active');
 
         if (error) {
-            console.warn('Error fetching radar matches (table might not exist):', error);
+            console.warn('Error fetching radar matches:', error);
             return [];
         }
 
@@ -69,7 +65,7 @@ export const api = {
             id: req.id,
             title: req.title || 'Match Request',
             location: req.location || 'Unknown',
-            distance: '2.0 miles', // Mock distance for now
+            distance: '2.0 miles',
             requiredEloRange: req.elo_range || [1000, 1200],
             sport: req.sport || 'Tennis',
             time: req.match_time || 'TBD',
@@ -87,8 +83,6 @@ export const api = {
             .order('elo', { ascending: false });
 
         if (region) {
-            // Include matching region OR users with no region set (fallback)
-            // Wrap region in quotes to handle spaces (e.g., "Home Way")
             query = query.or(`region.eq."${region}",region.is.null`);
         }
 
@@ -101,13 +95,11 @@ export const api = {
 
         let filteredData = data;
         if (sport && sport !== 'All') {
-            // Filter client-side
             filteredData = data.filter((p: any) =>
                 p.sports?.includes(sport) ||
                 p.elo_ratings?.[sport]
             );
 
-            // SORT by the specific sport's rating (descending)
             filteredData.sort((a: any, b: any) => {
                 const ratingA = a.elo_ratings?.[sport] ?? (a.elo || 800);
                 const ratingB = b.elo_ratings?.[sport] ?? (b.elo || 800);
@@ -119,7 +111,6 @@ export const api = {
             id: profile.id,
             name: profile.name || profile.username || 'User',
             sport: sport && sport !== 'All' ? sport : (profile.sports?.[0] || 'General'),
-
             distance: region ? 'Nearby' : (profile.region || 'Unknown'),
             rank: index + 1,
             image: profile.profile_photo || '/avatar-placeholder.png',

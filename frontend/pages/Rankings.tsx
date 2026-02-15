@@ -12,12 +12,13 @@ const Rankings: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedSport, setSelectedSport] = useState<string>('tennis');
-    const { signup, user } = useAuth();
+    const { user } = useAuth();
+    const [currentUserRanked, setCurrentUserRanked] = useState<NearbyUser | null>(null);
 
     // Default to Mumbai if user has no region set, as requested
     const [currentRegion, setCurrentRegion] = useState(user?.region || 'Mumbai');
 
-    // Update region if user profile loads/changes (optional, but good for UX)
+    // Update region if user profile loads/changes
     useEffect(() => {
         if (user?.region) {
             setCurrentRegion(user.region);
@@ -30,6 +31,15 @@ const Rankings: React.FC = () => {
         try {
             const data = await api.getNearbyUsers(selectedSport === 'All' ? undefined : selectedSport, currentRegion);
             setUsers(data);
+
+            if (user) {
+                const me = data.find(u => u.id === user.id);
+                if (me) {
+                    setCurrentUserRanked(me);
+                } else {
+                    setCurrentUserRanked(null);
+                }
+            }
         } catch (error) {
             console.error("Failed to fetch rankings:", error);
             setError("Failed to load leaderboard.");
@@ -57,7 +67,7 @@ const Rankings: React.FC = () => {
                 </div>
 
                 {/* 1. Hero Stat Card */}
-                {users[0] && (
+                {(currentUserRanked || (user && users.length > 0)) && (
                     <div className="relative overflow-hidden rounded-3xl bg-zinc-900 border border-white/10 p-8 md:p-12 mb-12 shadow-2xl">
                         <div className="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-purple-900/20 opacity-50" />
                         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10" />
@@ -68,7 +78,7 @@ const Rankings: React.FC = () => {
                                 <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Local Rank</div>
                                 <div className="flex items-center justify-center md:justify-start gap-3">
                                     <span className="text-6xl font-black italic tracking-tighter text-white">
-                                        #{users.findIndex(u => u.id === user?.id) !== -1 ? users.findIndex(u => u.id === user?.id) + 1 : '-'}
+                                        #{currentUserRanked ? currentUserRanked.rank : (users.findIndex(u => u.id === user?.id) !== -1 ? users.findIndex(u => u.id === user?.id) + 1 : '-')}
                                     </span>
                                     <div className="text-left">
                                         <span className="block text-xs font-bold text-gray-500">IN</span>
@@ -83,7 +93,7 @@ const Rankings: React.FC = () => {
                             <div className="space-y-2 border-t md:border-t-0 md:border-l border-white/10 pt-8 md:pt-0 md:pl-8">
                                 <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Current Tier</div>
                                 <h2 className="text-3xl font-black italic uppercase tracking-tight text-white">
-                                    {user?.level || 'Unrated'}
+                                    {currentUserRanked?.tier || user?.level || 'Unrated'}
                                 </h2>
                                 <p className="text-xs text-gray-500 font-medium">
                                     {user?.elo ? `Top ${(100 - (user.elo / 3000) * 100).toFixed(0)}%` : 'Unranked'} of players in {currentRegion}
@@ -131,6 +141,7 @@ const Rankings: React.FC = () => {
                                 onChange={(e) => setSelectedSport(e.target.value)}
                                 className="bg-black/50 border border-white/10 rounded-lg text-xs font-bold uppercase tracking-wider text-white px-3 py-1 outline-none focus:border-blue-600"
                             >
+                                <option value="All">All Sports</option>
                                 {SPORTS.map(s => (
                                     <option key={s.id} value={s.id}>{s.name}</option>
                                 ))}
@@ -180,15 +191,11 @@ const Rankings: React.FC = () => {
                                         >
                                             <td className={`px-6 py-4 font-black italic ${rankedUser.id === user?.id ? 'text-blue-400' : 'text-gray-500'
                                                 }`}>
-                                                #{rankedUser.rank}
+                                                #{rankedUser.rank || index + 1}
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    {rankedUser.id === user?.id ? (
-                                                        <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center font-bold text-white">ME</div>
-                                                    ) : (
-                                                        <img src={rankedUser.image} alt={rankedUser.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
-                                                    )}
+                                                    <img src={rankedUser.image || '/avatar-placeholder.png'} alt={rankedUser.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
                                                     <div>
                                                         <div className={`font-bold ${rankedUser.id === user?.id ? 'text-white' : 'text-white group-hover:text-blue-500 transition-colors'
                                                             }`}>
@@ -203,10 +210,10 @@ const Rankings: React.FC = () => {
                                             </td>
                                             <td className={`px-6 py-4 text-sm font-medium ${rankedUser.id === user?.id ? 'text-gray-300' : 'text-gray-400'
                                                 }`}>
-                                                {index === 0 ? 'Elite' : index < 3 ? 'Advanced' : 'Intermediate'}
+                                                {rankedUser.tier || (index === 0 ? 'Elite' : index < 5 ? 'Advanced' : 'Intermediate')}
                                             </td>
                                             <td className="px-6 py-4 text-right font-black italic text-white text-lg">
-                                                {rankedUser.rating ?? 0}
+                                                {rankedUser.rating || rankedUser.points || 0}
                                             </td>
                                         </tr>
                                     ))}
@@ -224,9 +231,9 @@ const Rankings: React.FC = () => {
                     )}
                 </div>
 
-            </main>
+            </main >
             <Footer />
-        </div>
+        </div >
     );
 };
 
