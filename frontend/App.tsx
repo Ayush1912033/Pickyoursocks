@@ -38,9 +38,6 @@ const Landing: React.FC = () => {
           <SportsGrid limit={4} />
           <Community />
           <Waitlist />
-          <div className="fixed bottom-2 left-2 text-[10px] text-white/20 pointer-events-none z-[200]">
-            v2.1 (Routing Fix)
-          </div>
         </div>
       </main>
 
