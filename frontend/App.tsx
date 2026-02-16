@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from './components/AuthContext';
 import { NotificationProvider } from './components/NotificationContext';
@@ -52,12 +52,19 @@ const Landing: React.FC = () => {
 };
 
 /* ======================
-   Root Route Handler
-   - Checks auth status
-   - Renders Feed (if logged in) or Landing (if public)
+   Root Route (Smart Redirect)
+   - Guests -> Landing
+   - Users -> Feed
  ====================== */
 const RootHandler: React.FC = () => {
   const { user, isLoading } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isLoading && user) {
+      navigate('/feed', { replace: true });
+    }
+  }, [user, isLoading, navigate]);
 
   if (isLoading) {
     return (
@@ -67,13 +74,10 @@ const RootHandler: React.FC = () => {
     );
   }
 
-  return user ? (
-    <ProtectedRoute>
-      <Feed />
-    </ProtectedRoute>
-  ) : (
-    <Landing />
-  );
+  // If we are here, user is null (or loading finished efficiently)
+  // We render Landing for guests. 
+  // If user *was* present, the useEffect above would have navigated away.
+  return <Landing />;
 };
 
 /* ======================
@@ -83,19 +87,26 @@ const App: React.FC = () => {
   return (
     <NotificationProvider>
       <Routes>
-        {/* Root Route: Smart Handler */}
+        {/* Root: Landing (or Redirect to Feed if logged in) */}
         <Route path="/" element={<RootHandler />} />
 
+        {/* Feed: Explicitly Protected */}
+        <Route
+          path="/feed"
+          element={
+            <ProtectedRoute>
+              <Feed />
+            </ProtectedRoute>
+          }
+        />
+
         {/* Public Routes */}
-        <Route path="/landing" element={<Landing />} />
+        <Route path="/landing" element={<Navigate to="/" replace />} />
         <Route path="/auth" element={<Auth />} />
         <Route path="/signup" element={<Auth />} />
         <Route path="/sports" element={<AllSports />} />
         <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="/terms" element={<TermsOfService />} />
-
-        {/* Legacy/Redirects */}
-        <Route path="/feed" element={<Navigate to="/" replace />} />
 
         {/* Other Protected Routes */}
         <Route
