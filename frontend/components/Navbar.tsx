@@ -126,11 +126,13 @@ const Navbar: React.FC = () => {
             </span>
           </Link>
 
-          <div className="flex items-center gap-1 border-l border-white/10 pl-8 h-8">
-            <NavItem title="Home" to="/" />
-            <NavItem title="Radar" to="/radar" />
-            <NavItem title="Ranking" to="/rankings" />
-          </div>
+          {user && (
+            <div className="flex items-center gap-1 border-l border-white/10 pl-8 h-8">
+              <NavItem title="Home" to="/" />
+              <NavItem title="Radar" to="/radar" />
+              <NavItem title="Ranking" to="/rankings" />
+            </div>
+          )}
         </div>
 
         {/* RIGHT SECTION */}
@@ -273,33 +275,33 @@ const Navbar: React.FC = () => {
       </div>
 
       {/* ======================
-          Mobile Bottom Nav
+          Mobile Bottom Nav - ONLY FOR LOGGED IN USERS
       ====================== */}
-      <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
-        <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-around px-6 py-4">
-          <Link
-            to="/"
-            className={`flex flex-col items-center gap-1 ${isActive('/') ? 'text-blue-500' : 'text-gray-500'
-              }`}
-          >
-            <Home size={20} />
-            {isActive('/') && (
-              <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-            )}
-          </Link>
+      {user && (
+        <div className="lg:hidden fixed bottom-4 left-4 right-4 z-50">
+          <div className="bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl flex items-center justify-around px-6 py-4">
+            <Link
+              to="/"
+              className={`flex flex-col items-center gap-1 ${isActive('/') ? 'text-blue-500' : 'text-gray-500'
+                }`}
+            >
+              <Home size={20} />
+              {isActive('/') && (
+                <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+              )}
+            </Link>
 
-          <Link
-            to="/radar"
-            className={`flex flex-col items-center gap-1 ${isActive('/radar') ? 'text-blue-500' : 'text-gray-500'
-              }`}
-          >
-            <Radio size={20} />
-            {isActive('/radar') && (
-              <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-            )}
-          </Link>
+            <Link
+              to="/radar"
+              className={`flex flex-col items-center gap-1 ${isActive('/radar') ? 'text-blue-500' : 'text-gray-500'
+                }`}
+            >
+              <Radio size={20} />
+              {isActive('/radar') && (
+                <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+              )}
+            </Link>
 
-          {user && (
             <button
               onClick={() => setOpenPost(true)}
               className="flex flex-col items-center gap-1 text-blue-500"
@@ -307,31 +309,31 @@ const Navbar: React.FC = () => {
               <PlusSquare size={22} />
               <span className="w-1 h-1 rounded-full bg-blue-500"></span>
             </button>
-          )}
 
-          <Link
-            to="/rankings"
-            className={`flex flex-col items-center gap-1 ${isActive('/rankings') ? 'text-blue-500' : 'text-gray-500'
-              }`}
-          >
-            <Trophy size={20} />
-            {isActive('/rankings') && (
-              <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-            )}
-          </Link>
+            <Link
+              to="/rankings"
+              className={`flex flex-col items-center gap-1 ${isActive('/rankings') ? 'text-blue-500' : 'text-gray-500'
+                }`}
+            >
+              <Trophy size={20} />
+              {isActive('/rankings') && (
+                <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+              )}
+            </Link>
 
-          <Link
-            to="/profile"
-            className={`flex flex-col items-center gap-1 ${isActive('/profile') ? 'text-blue-500' : 'text-gray-500'
-              }`}
-          >
-            <User size={20} />
-            {isActive('/profile') && (
-              <span className="w-1 h-1 rounded-full bg-blue-500"></span>
-            )}
-          </Link>
+            <Link
+              to="/profile"
+              className={`flex flex-col items-center gap-1 ${isActive('/profile') ? 'text-blue-500' : 'text-gray-500'
+                }`}
+            >
+              <User size={20} />
+              {isActive('/profile') && (
+                <span className="w-1 h-1 rounded-full bg-blue-500"></span>
+              )}
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ======================
           Create Post Modal
