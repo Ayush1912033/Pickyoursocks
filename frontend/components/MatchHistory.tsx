@@ -38,11 +38,21 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({ userId }) => {
 
                 // Handle result being potentially an array or object
                 const resultData = Array.isArray(match.result) ? match.result[0] : match.result;
+
+                // FILTER: Only show if completed OR (accepted + has result)
+                if (match.status === 'accepted' && !resultData) return null;
+
                 const isVerified = resultData?.is_verified;
-                const amIWinner = isVerified && resultData.winner_id === userId;
+                // If not verified, we can still show it as "Pending" or "Reviewing"
+                // But for "History", we usually want finished games.
+                // The issue user reported is likely they don't see games they finished but aren't "verified" by system yet.
+                // So we show them, but maybe with a different icon or styling if unverified?
+
+                const amIWinner = resultData?.winner_id === userId;
+                const isPending = !isVerified;
 
                 return (
-                    <div key={match.id} className={`bg-zinc-900 border-2 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 ${amIWinner ? 'border-green-500/20' : 'border-red-500/20'
+                    <div key={match.id} className={`bg-zinc-900 border-2 p-6 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 ${isPending ? 'border-yellow-500/20' : (amIWinner ? 'border-green-500/20' : 'border-red-500/20')
                         }`}>
                         <div className="flex items-center gap-4">
                             <div className="relative">
@@ -50,9 +60,9 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({ userId }) => {
                                     src={partner?.profile_photo || '/avatar-placeholder.png'}
                                     className="w-12 h-12 rounded-full object-cover"
                                 />
-                                <div className={`absolute -bottom-1 -right-1 p-1 rounded-full ${amIWinner ? 'bg-green-500 text-black' : 'bg-red-500 text-white'
+                                <div className={`absolute -bottom-1 -right-1 p-1 rounded-full ${isPending ? 'bg-yellow-500 text-black' : (amIWinner ? 'bg-green-500 text-black' : 'bg-red-500 text-white')
                                     }`}>
-                                    {amIWinner ? <Trophy size={10} /> : <Frown size={10} />}
+                                    {isPending ? <Users size={10} /> : (amIWinner ? <Trophy size={10} /> : <Frown size={10} />)}
                                 </div>
                             </div>
                             <div>
@@ -62,8 +72,8 @@ const MatchHistory: React.FC<MatchHistoryProps> = ({ userId }) => {
                         </div>
 
                         <div className="flex flex-col items-end">
-                            <span className={`text-xl font-black italic ${amIWinner ? 'text-green-500' : 'text-red-500'}`}>
-                                {amIWinner ? 'VICTORY' : 'DEFEAT'}
+                            <span className={`text-xl font-black italic ${isPending ? 'text-yellow-500' : (amIWinner ? 'text-green-500' : 'text-red-500')}`}>
+                                {isPending ? 'PENDING' : (amIWinner ? 'VICTORY' : 'DEFEAT')}
                             </span>
                             <span className="text-sm font-bold text-white bg-white/10 px-3 py-1 rounded-full">
                                 {resultData?.score || 'N/A'}

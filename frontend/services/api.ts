@@ -96,7 +96,7 @@ export const api = {
         let filteredData = data;
         if (sport && sport !== 'All') {
             filteredData = data.filter((p: any) =>
-                p.sports?.includes(sport) ||
+                p.sports?.some((s: string) => s.toLowerCase() === sport.toLowerCase()) ||
                 p.elo_ratings?.[sport]
             );
 
@@ -171,7 +171,7 @@ export const api = {
                     is_verified
                 )
             `)
-            .eq('status', 'completed')
+            .or('status.eq.completed,status.eq.accepted')
             .or(`user_id.eq.${userId},accepted_by.eq.${userId},opponent_id.eq.${userId}`)
             .order('created_at', { ascending: false });
 
