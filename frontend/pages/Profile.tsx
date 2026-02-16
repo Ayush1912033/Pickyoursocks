@@ -198,6 +198,7 @@ const Profile: React.FC = () => {
         time_slots: timeSlots.split(',').map(s => s.trim()).filter(Boolean),
         achievements: achievements.split('\n').map(a => a.trim()).filter(Boolean),
         region,
+        sports,
         lat,
         lng,
         updated_at: new Date().toISOString(),
@@ -508,6 +509,33 @@ const Profile: React.FC = () => {
                     className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm focus:border-blue-500 outline-none transition-all"
                   />
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3 block">Sports Interests</label>
+              <div className="flex flex-wrap gap-2">
+                {SPORTS.map((sport) => {
+                  const isSelected = sports.includes(sport.id);
+                  return (
+                    <button
+                      key={sport.id}
+                      onClick={() => {
+                        if (isSelected) {
+                          setSports(sports.filter(s => s !== sport.id));
+                        } else {
+                          setSports([...sports, sport.id]);
+                        }
+                      }}
+                      className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${isSelected
+                        ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-600/20'
+                        : 'bg-zinc-900 border-white/10 text-gray-400 hover:border-white/20'
+                        }`}
+                    >
+                      {sport.name}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
