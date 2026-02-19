@@ -284,23 +284,32 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         name: userData.name,
         username: uniqueUsername, // Save the generated username
         sports: userData.sports ?? [],
-        elo: userData.elo ?? 800, // Default to 800 if not provided
-        reliability_score: userData.reliability_score ?? 100,
-        calibration_games_remaining: userData.calibration_games_remaining ?? 5,
-        rating_deviation: userData.rating_deviation ?? 350,
-        elo_ratings: userData.elo_ratings ?? { [userData.sports?.[0] || 'tennis']: userData.elo ?? 800 },
-        region: userData.region, // NEW: Save region
+        rating: userData.elo ?? 800, // Use rating instead of elo
+        elo: userData.elo ?? 800, // Keep both for compatibility
+        rd: userData.rating_deviation ?? 350, // Changed from rating_deviation to rd
+        volatility: 0.06, // Default volatility
       };
 
-      await supabase.from('profiles').upsert({
+      console.log('Creating profile for user:', data.user.id);
+      const { data: profileData, error: profileError } = await supabase.from('profiles').upsert({
         id: data.user.id,
         ...newProfile
       });
+
+      if (profileError) {
+        console.error('Profile creation failed:', profileError);
+        throw profileError; // Or handle it
+      } else {
+        console.log('Profile created successfully:', profileData);
+      }
 
       // FIX: Immediately set user state to avoid race condition with fetchProfileSafe
       setUser({
         id: data.user.id,
         email: data.user.email!,
+        name: userData.name,
+        sports: userData.sports ?? [],
+        elo: userData.elo ?? 800,
         ...newProfile
       });
 
