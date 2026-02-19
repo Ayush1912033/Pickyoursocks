@@ -53,25 +53,25 @@ export const SPORTS: SportCategory[] = [
   {
     id: 'pickleball',
     name: 'Pickleball',
-    image: '/pickleball.jpg', // Placeholder
+    image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800&auto=format&fit=crop',
     description: 'The fastest growing sport in the world.'
   },
   {
     id: 'padel',
     name: 'Padel',
-    image: '/padel.jpg', // Placeholder
+    image: 'https://images.unsplash.com/photo-1699732124508-3079da689945?q=80&w=800&auto=format&fit=crop',
     description: 'Social and competitive padel matches.'
   },
   {
     id: 'football',
     name: 'Football',
-    image: '/cristiano_ronaldo.png',
+    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800&auto=format&fit=crop',
     description: 'Organize 5-a-side matches with ELO ratings.'
   },
   {
     id: 'mma',
     name: 'MMA',
-    image: '/conor_mcgregor.jpeg',
+    image: 'https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?q=80&w=800&auto=format&fit=crop',
     description: 'Find sparring partners and local gyms.'
   },
   {
