@@ -9,8 +9,6 @@ interface SportsGridProps {
 const SportsGrid: React.FC<SportsGridProps> = ({ limit }) => {
   const navigate = useNavigate();
   const baseSports = limit ? SPORTS.slice(0, limit) : SPORTS;
-  // Duplicate the sports array for a seamless loop
-  const duplicatedSports = [...baseSports, ...baseSports];
 
   return (
     <section id="sports" className="py-24 bg-zinc-950 overflow-hidden">
@@ -30,17 +28,17 @@ const SportsGrid: React.FC<SportsGridProps> = ({ limit }) => {
         )}
       </div>
 
-      {/* Infinite Scroll Container */}
+      {/* Manual Scroll Container */}
       <div className="relative">
         {/* Fading Edge Overlays */}
         <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-zinc-950 to-transparent z-10 pointer-events-none" />
         <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-zinc-950 to-transparent z-10 pointer-events-none" />
 
-        <div className="flex w-fit animate-infinite-scroll hover:pause-animation">
-          {duplicatedSports.map((sport, index) => (
+        <div className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory px-6 md:px-12 pb-8">
+          {baseSports.map((sport) => (
             <div
-              key={`${sport.id}-${index}`}
-              className="group relative w-[300px] md:w-[450px] h-[450px] shrink-0 overflow-hidden rounded-3xl bg-zinc-900 border border-white/5 cursor-pointer mx-3"
+              key={sport.id}
+              className="group relative w-[80vw] md:w-[450px] h-[450px] shrink-0 overflow-hidden rounded-3xl bg-zinc-900 border border-white/5 cursor-pointer mx-3 snap-center"
               onClick={() => navigate('/signup')}
             >
               <img
@@ -60,6 +58,8 @@ const SportsGrid: React.FC<SportsGridProps> = ({ limit }) => {
               </div>
             </div>
           ))}
+          {/* Spacing element at the end */}
+          <div className="w-12 shrink-0 md:hidden" />
         </div>
       </div>
     </section>

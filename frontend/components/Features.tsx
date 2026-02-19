@@ -4,8 +4,6 @@ import { FEATURES } from '../constants';
 import * as Icons from 'lucide-react';
 
 const Features: React.FC = () => {
-    const duplicatedFeatures = [...FEATURES, ...FEATURES];
-
     return (
         <section id="how-it-works" className="py-24 bg-black relative overflow-hidden">
             {/* Background Gradients */}
@@ -24,17 +22,17 @@ const Features: React.FC = () => {
                 </div>
             </div>
 
-            {/* Infinite Scroll Container */}
+            {/* Manual Scroll Container */}
             <div className="relative">
                 {/* Fading Edge Overlays */}
                 <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-black to-transparent z-10 pointer-events-none" />
                 <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-black to-transparent z-10 pointer-events-none" />
 
-                <div className="flex w-fit animate-infinite-scroll hover:pause-animation">
-                    {duplicatedFeatures.map((feature, idx) => (
+                <div className="flex overflow-x-auto scrollbar-hide snap-x snap-mandatory px-6 lg:px-12 pb-12">
+                    {FEATURES.map((feature) => (
                         <div
-                            key={`${feature.id}-${idx}`}
-                            className="group relative w-[350px] md:w-[450px] shrink-0 p-8 bg-zinc-900 border border-white/5 rounded-[2.5rem] hover:bg-zinc-800 transition-all duration-500 mx-4 overflow-hidden"
+                            key={feature.id}
+                            className="group relative w-[80vw] md:w-[450px] shrink-0 p-8 bg-zinc-900 border border-white/5 rounded-[2.5rem] hover:bg-zinc-800 transition-all duration-500 mx-4 overflow-hidden snap-center"
                         >
                             {/* Hover Glow Effect */}
                             <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/5 to-purple-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out" />
@@ -58,6 +56,8 @@ const Features: React.FC = () => {
                             </div>
                         </div>
                     ))}
+                    {/* Spacing element at the end */}
+                    <div className="w-12 shrink-0 md:hidden" />
                 </div>
             </div>
         </section>
