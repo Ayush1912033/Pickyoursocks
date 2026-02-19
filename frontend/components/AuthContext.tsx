@@ -60,7 +60,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
 
   updateUser: (updates: Partial<User>) => Promise<void>;
-  refreshProfile: () => Promise<void>;
+  refreshProfile: () => Promise<User | null>;
 }
 
 /* =======================
@@ -81,11 +81,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   /* -----------------------
      Fetch profile (WITH TIMEOUT)
   ----------------------- */
+  /* -----------------------
+     Fetch profile (WITH TIMEOUT & CACHE)
+  ----------------------- */
   const fetchProfileSafe = async (userId: string) => {
     try {
-      // Set a 5 second timeout for profile fetch
+      // 1. Try to load from cache first for immediate display
+      const cachedProfile = localStorage.getItem(`pys_profile_${userId}`);
+      if (cachedProfile) {
+        try {
+          const parsed = JSON.parse(cachedProfile);
+          // Verify it has sports, otherwise treat as stale if we want strictness, 
+          // but for now, returning cached is better than nothing.
+          // We return this immediately if network fails? No, we return it if network fails.
+        } catch (e) {
+          console.warn('CACHE PARSE FAIL', e);
+          localStorage.removeItem(`pys_profile_${userId}`);
+        }
+      }
+
+      // Set a 10 second timeout for profile fetch
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Profile fetch timeout')), 5000)
+        setTimeout(() => reject(new Error('Profile fetch timeout')), 10000)
       );
 
       const fetchPromise = supabase
@@ -101,12 +118,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (error) {
         console.warn('PROFILE FETCH ERROR:', error.message);
+        // Fallback to cache if network error
+        if (cachedProfile) return JSON.parse(cachedProfile);
         return null;
+      }
+
+      if (data) {
+        // Update cache
+        localStorage.setItem(`pys_profile_${userId}`, JSON.stringify(data));
       }
 
       return data;
     } catch (err) {
       console.warn('PROFILE FETCH EXCEPTION:', err);
+      // Fallback to cache if exception
+      const cachedProfile = localStorage.getItem(`pys_profile_${userId}`);
+      if (cachedProfile) return JSON.parse(cachedProfile);
       return null;
     }
   };
@@ -170,10 +197,29 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const profile = await fetchProfileSafe(sbUser.id);
 
         if (mounted) {
-          setUser({
-            id: sbUser.id,
-            email: sbUser.email!,
-            ...(profile || { elo: 1200 }),
+          setUser(prev => {
+            // 1. If we got a valid profile, use it
+            if (profile) {
+              return {
+                id: sbUser.id,
+                email: sbUser.email!,
+                ...profile,
+              };
+            }
+
+            // 2. If fetch failed (null) but we already have this user loaded with sports, KEEP IT!
+            // This prevents "flickering" to onboarding on transient network errors during tab switches
+            if (prev && prev.id === sbUser.id && prev.sports && prev.sports.length > 0) {
+              console.warn('Profile fetch failed, preserving existing user state to prevent redirect loop.');
+              return prev;
+            }
+
+            // 3. If no previous state and fetch failed, we have to fallback to default (which might trigger onboarding, but correctly so)
+            return {
+              id: sbUser.id,
+              email: sbUser.email!,
+              elo: 1200, // Default
+            };
           });
         }
       } else {
@@ -207,20 +253,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     userData: Pick<User, 'email' | 'name' | 'sports' | 'reliability_score' | 'calibration_games_remaining' | 'rating_deviation' | 'elo' | 'elo_ratings' | 'region'>,
     password: string
   ) => {
+    // Generate a unique username to prevent trigger failures on collision
+    const emailPrefix = userData.email.split('@')[0];
+    const randomSuffix = Math.floor(1000 + Math.random() * 9000); // 4 digit random
+    const uniqueUsername = `${emailPrefix}${randomSuffix}`;
+
     const { data, error } = await supabase.auth.signUp({
       email: userData.email,
       password,
       options: {
-        data: { name: userData.name },
+        data: {
+          name: userData.name,
+          full_name: userData.name, // Trigger expects full_name
+          username: uniqueUsername, // Trigger expects username or defaults to email prefix (collision prone)
+          sports: userData.sports,
+          elo: userData.elo,
+          reliability_score: userData.reliability_score,
+          calibration_games_remaining: userData.calibration_games_remaining,
+          rating_deviation: userData.rating_deviation,
+          elo_ratings: userData.elo_ratings,
+          region: userData.region,
+        },
       },
     });
 
     if (error) throw error;
 
     if (data.user) {
-      await supabase.from('profiles').upsert({
-        id: data.user.id,
+      const newProfile = {
         name: userData.name,
+        username: uniqueUsername, // Save the generated username
         sports: userData.sports ?? [],
         elo: userData.elo ?? 800, // Default to 800 if not provided
         reliability_score: userData.reliability_score ?? 100,
@@ -228,7 +290,22 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         rating_deviation: userData.rating_deviation ?? 350,
         elo_ratings: userData.elo_ratings ?? { [userData.sports?.[0] || 'tennis']: userData.elo ?? 800 },
         region: userData.region, // NEW: Save region
+      };
+
+      await supabase.from('profiles').upsert({
+        id: data.user.id,
+        ...newProfile
       });
+
+      // FIX: Immediately set user state to avoid race condition with fetchProfileSafe
+      setUser({
+        id: data.user.id,
+        email: data.user.email!,
+        ...newProfile
+      });
+
+      // Update Cache
+      localStorage.setItem(`pys_profile_${data.user.id}`, JSON.stringify(newProfile));
     }
   };
 
@@ -278,16 +355,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         updated_at: new Date().toISOString(),
       });
 
-    if (error) throw error;
+    if (error) {
+      console.error('UPDATE USER FAILED:', error);
+      throw error;
+    }
 
-    setUser(prev => (prev ? { ...prev, ...updates } : prev));
+    setUser(prev => {
+      const newState = prev ? { ...prev, ...updates } : prev;
+      if (newState) {
+        localStorage.setItem(`pys_profile_${user.id}`, JSON.stringify(newState));
+      }
+      return newState;
+    });
   };
 
   /* -----------------------
      Refresh Profile
   ----------------------- */
-  const refreshProfile = async () => {
-    if (!user) return;
+  const refreshProfile = async (): Promise<User | null> => {
+    if (!user) return null;
 
     const profile = await fetchProfileSafe(user.id);
 
@@ -299,7 +385,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const { generateAndStoreKeys } = await import('../lib/chat');
         generateAndStoreKeys(user.id).catch(console.error);
       }
+
+      // Return the merged user object for immediate checking
+      return { ...user, ...profile };
     }
+    return null;
   };
 
   return (
