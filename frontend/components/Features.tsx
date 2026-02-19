@@ -32,24 +32,36 @@ const Features: React.FC = () => {
                     {FEATURES.map((feature) => (
                         <div
                             key={feature.id}
-                            className="group relative w-[80vw] md:w-[450px] shrink-0 p-8 bg-zinc-900 border border-white/5 rounded-[2.5rem] hover:bg-zinc-800 transition-all duration-500 mx-4 overflow-hidden snap-center"
+                            className="group relative w-[80vw] md:w-[450px] shrink-0 h-[500px] p-8 bg-zinc-900 border border-white/5 rounded-[2.5rem] hover:bg-zinc-800 transition-all duration-500 mx-4 overflow-hidden snap-center flex flex-col justify-end"
                         >
-                            {/* Hover Glow Effect */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/5 to-purple-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out" />
+                            {/* Background Image */}
+                            {feature.image && (
+                                <img
+                                    src={feature.image}
+                                    alt={feature.title}
+                                    className="absolute inset-0 w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-opacity duration-500 grayscale group-hover:grayscale-0"
+                                />
+                            )}
 
-                            <div className="flex flex-col gap-6 relative z-10">
-                                <div className="relative w-16 h-16 rounded-2xl flex items-center justify-center bg-zinc-950 border border-white/5 group-hover:border-blue-500/50 transition-all duration-500 shrink-0">
-                                    <div className="relative z-10 text-blue-400 group-hover:text-white transition-colors duration-300">
-                                        {feature.icon === 'target' && <Icons.Target size={28} strokeWidth={1.5} />}
-                                        {feature.icon === 'user-check' && <Icons.UserCheck size={28} strokeWidth={1.5} />}
-                                        {feature.icon === 'map-pin' && <Icons.MapPin size={28} strokeWidth={1.5} />}
+                            {/* Overlay Gradient */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent" />
+
+                            {/* Hover Glow Effect */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-600/0 via-blue-600/10 to-purple-600/0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 ease-in-out mix-blend-overlay" />
+
+                            <div className="flex flex-col gap-4 relative z-10 translate-y-4 group-hover:translate-y-0 transition-transform duration-300">
+                                <div className="relative w-14 h-14 rounded-2xl flex items-center justify-center bg-zinc-950/80 backdrop-blur-sm border border-white/10 group-hover:border-blue-500/50 transition-all duration-500 shrink-0 mb-2">
+                                    <div className="relative z-10 text-blue-400 group-hover:text-blue-300 transition-colors duration-300">
+                                        {feature.icon === 'target' && <Icons.Target size={24} strokeWidth={2} />}
+                                        {feature.icon === 'user-check' && <Icons.UserCheck size={24} strokeWidth={2} />}
+                                        {feature.icon === 'map-pin' && <Icons.MapPin size={24} strokeWidth={2} />}
                                     </div>
                                 </div>
                                 <div>
-                                    <h4 className="text-2xl font-black uppercase italic mb-3 text-white group-hover:text-blue-500 transition-colors">
+                                    <h4 className="text-3xl font-black uppercase italic mb-3 text-white group-hover:text-blue-400 transition-colors tracking-tighter shadow-black drop-shadow-lg">
                                         {feature.title}
                                     </h4>
-                                    <p className="text-gray-400 leading-relaxed font-light group-hover:text-gray-200 transition-colors">
+                                    <p className="text-gray-300 leading-relaxed font-medium text-sm md:text-base drop-shadow-md group-hover:text-white transition-colors">
                                         {feature.description}
                                     </p>
                                 </div>
