@@ -9,22 +9,19 @@ export const FEATURES: Feature[] = [
     id: 'elo',
     title: 'Fair Skill Ratings',
     description: 'Stop playing mismatched games. Our ranking algorithm finds you opponents at your exact skill level for every sport.',
-    icon: 'target',
-    image: 'https://images.unsplash.com/photo-1595078475328-1ab05d0a6a0e?q=80&w=800&auto=format&fit=crop' // MMA
+    icon: 'target'
   },
   {
     id: 'recruit',
     title: 'Verified Athlete Profile',
     description: 'Your digital sports career. Track your win rates, upload highlight reels, and get discovered by local teams/scouts.',
-    icon: 'user-check',
-    image: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?q=80&w=800&auto=format&fit=crop' // Football
+    icon: 'user-check'
   },
   {
     id: 'venue',
     title: 'Instant Court Booking',
     description: 'No more "where are we playing?" Secure high-quality courts instantly through our network of partner venues.',
-    icon: 'map-pin',
-    image: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?q=80&w=800&auto=format&fit=crop' // Pickleball/Court
+    icon: 'map-pin'
   }
 ];
 

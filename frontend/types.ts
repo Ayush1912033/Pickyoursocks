@@ -4,7 +4,6 @@ export interface Feature {
   title: string;
   description: string;
   icon: string;
-  image?: string;
 }
 
 export interface SportCategory {
