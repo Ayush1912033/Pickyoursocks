@@ -39,10 +39,19 @@ const StartMatchSidebar: React.FC<StartMatchSidebarProps> = ({
             return;
         }
 
+        // Combine date and time into a single Date object
+        const scheduledDate = new Date(`${date}T${time}`);
+        const now = new Date();
+
+        if (scheduledDate < now) {
+            showNotification('Cannot schedule a match in the past!', 'error');
+            return;
+        }
+
         setIsBroadcasting(true);
 
-        // Combine date and time into a single ISO string
-        const scheduledTime = new Date(`${date}T${time}`).toISOString();
+        // ISO string for DB
+        const scheduledTime = scheduledDate.toISOString();
 
         try {
             const { error } = await supabase.from('match_requests').insert({
@@ -67,7 +76,7 @@ const StartMatchSidebar: React.FC<StartMatchSidebarProps> = ({
     };
 
     return (
-        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sticky top-24">
+        <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/10 rounded-2xl p-6 sticky top-24 w-full max-w-full box-border">
             <div className="text-center mb-8">
                 <h3 className="text-xl font-black italic uppercase tracking-tighter text-white mb-2">
                     Start a Match
@@ -95,35 +104,38 @@ const StartMatchSidebar: React.FC<StartMatchSidebarProps> = ({
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Schedule Match</p>
 
                 <div className="space-y-3">
-                    <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                    <div className="relative w-full">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-10">
                             <Calendar size={16} />
                         </div>
                         <input
                             type="date"
+                            min={new Date().toISOString().split('T')[0]} // Block past dates
                             value={date}
                             onChange={(e) => setDate(e.target.value)}
-                            className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 pl-11 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none"
+                            className="block w-full min-w-0 bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 pl-11 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none max-w-full box-border appearance-none"
+                            style={{ WebkitAppearance: 'none' }}
                         />
                     </div>
 
-                    <div className="relative">
-                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                    <div className="relative w-full">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none z-10">
                             <Clock size={16} />
                         </div>
                         <input
                             type="time"
                             value={time}
                             onChange={(e) => setTime(e.target.value)}
-                            className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 pl-11 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none"
+                            className="block w-full min-w-0 bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 pl-11 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none max-w-full box-border appearance-none"
+                            style={{ WebkitAppearance: 'none' }}
                         />
                     </div>
 
-                    <div className="relative">
+                    <div className="relative w-full">
                         <select
                             value={selectedSport}
                             onChange={(e) => handleSportChange(e.target.value)}
-                            className="w-full bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none appearance-none cursor-pointer"
+                            className="block w-full min-w-0 bg-zinc-800/50 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-bold uppercase tracking-wider focus:border-blue-500 outline-none appearance-none cursor-pointer max-w-full box-border"
                         >
                             {user?.sports && user.sports.length > 0 ? (
                                 user.sports.map(sid => {
@@ -136,7 +148,7 @@ const StartMatchSidebar: React.FC<StartMatchSidebarProps> = ({
                                 ))
                             )}
                         </select>
-                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400 z-10">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                             </svg>
@@ -157,7 +169,7 @@ const StartMatchSidebar: React.FC<StartMatchSidebarProps> = ({
                         Sending Challenge...
                     </span>
                 ) : (
-                    'Start a Challenge'
+                    'Start New Challenge'
                 )}
             </button>
 

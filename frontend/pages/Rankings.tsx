@@ -15,6 +15,8 @@ const Rankings: React.FC = () => {
     const { user } = useAuth();
     const [currentUserRanked, setCurrentUserRanked] = useState<NearbyUser | null>(null);
 
+    const [viewMode, setViewMode] = useState<'local' | 'global'>('local');
+
     // Default to Mumbai if user has no region set
     const [currentRegion, setCurrentRegion] = useState(user?.region || 'Mumbai');
 
@@ -29,7 +31,9 @@ const Rankings: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await api.getNearbyUsers(selectedSport === 'All' ? undefined : selectedSport, currentRegion);
+            // If global, pass undefined for region. If local, pass currentRegion.
+            const regionToFetch = viewMode === 'global' ? undefined : currentRegion;
+            const data = await api.getNearbyUsers(selectedSport === 'All' ? undefined : selectedSport, regionToFetch);
             setUsers(data);
 
             if (user) {
@@ -50,7 +54,7 @@ const Rankings: React.FC = () => {
 
     useEffect(() => {
         fetchRankings();
-    }, [selectedSport, currentRegion]);
+    }, [selectedSport, currentRegion, viewMode]);
 
     return (
         <div className="min-h-screen bg-black text-white selection:bg-blue-600/30">
@@ -62,7 +66,7 @@ const Rankings: React.FC = () => {
                         Your <span className="text-blue-600">Standing</span>
                     </h1>
                     <p className="text-gray-400 text-lg">
-                        Compete with players in your area and climb the local ladder.
+                        Compete with players in {viewMode === 'local' ? 'your area' : 'the world'} and climb the ladder.
                     </p>
                 </div>
 
@@ -75,7 +79,7 @@ const Rankings: React.FC = () => {
                         <div className="relative grid md:grid-cols-3 gap-8 items-center text-center md:text-left">
                             {/* Local Rank */}
                             <div className="space-y-2">
-                                <div className="text-xs font-bold uppercase tracking-widest text-gray-400">Local Rank</div>
+                                <div className="text-xs font-bold uppercase tracking-widest text-gray-400">{viewMode === 'local' ? 'Local Rank' : 'Global Rank'}</div>
                                 <div className="flex items-center justify-center md:justify-start gap-3">
                                     <span className="text-6xl font-black italic tracking-tighter text-white">
                                         #{currentUserRanked ? currentUserRanked.rank : (users.findIndex(u => u.id === user?.id) !== -1 ? users.findIndex(u => u.id === user?.id) + 1 : '-')}
@@ -83,7 +87,11 @@ const Rankings: React.FC = () => {
                                     <div className="text-left">
                                         <span className="block text-xs font-bold text-gray-500">IN</span>
                                         <span className="flex items-center gap-1 text-sm font-bold text-blue-400">
-                                            {currentRegion} <MapPin size={12} />
+                                            {viewMode === 'local' ? (
+                                                <>{currentRegion} <MapPin size={12} /></>
+                                            ) : (
+                                                <>THE WORLD <TrendingUp size={12} /></>
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -96,7 +104,7 @@ const Rankings: React.FC = () => {
                                     {currentUserRanked?.tier || user?.level || 'Unrated'}
                                 </h2>
                                 <p className="text-xs text-gray-500 font-medium">
-                                    {user?.elo ? `Top ${(100 - (user.elo / 3000) * 100).toFixed(0)}%` : 'Unranked'} of players in {currentRegion}
+                                    {user?.elo ? `Top ${(100 - (user.elo / 3000) * 100).toFixed(0)}%` : 'Unranked'} of players {viewMode === 'local' ? `in ${currentRegion}` : 'globally'}
                                 </p>
                             </div>
 
@@ -119,21 +127,42 @@ const Rankings: React.FC = () => {
 
                 {/* 2. Leaderboard Table */}
                 <div className="bg-zinc-950 border border-white/5 rounded-2xl overflow-hidden">
-                    <div className="p-6 border-b border-white/5 bg-zinc-900/50 flex items-center justify-between">
+                    <div className="p-6 border-b border-white/5 bg-zinc-900/50 flex flex-col md:flex-row items-center justify-between gap-4">
                         <h3 className="text-xl font-black italic uppercase tracking-tighter flex items-center gap-3">
                             <div className="flex items-center gap-2 bg-black/40 border border-white/10 px-4 py-2 rounded-full">
                                 <Trophy className="text-yellow-500" size={16} />
-                                <input
-                                    type="text"
-                                    value={currentRegion}
-                                    onChange={(e) => setCurrentRegion(e.target.value)}
-                                    className="bg-transparent border-none outline-none w-48 text-white placeholder-zinc-600 font-black italic uppercase text-2xl focus:ring-0"
-                                    placeholder="REGION..."
-                                />
+                                {viewMode === 'local' ? (
+                                    <input
+                                        type="text"
+                                        value={currentRegion}
+                                        onChange={(e) => setCurrentRegion(e.target.value)}
+                                        className="bg-transparent border-none outline-none w-48 text-white placeholder-zinc-600 font-black italic uppercase text-2xl focus:ring-0"
+                                        placeholder="REGION..."
+                                    />
+                                ) : (
+                                    <span className="text-white font-black italic uppercase text-2xl">GLOBAL</span>
+                                )}
                             </div>
                             <span className="text-zinc-500">/</span>
                             <span>Leaderboard</span>
                         </h3>
+
+                        <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-white/10">
+                            <button
+                                onClick={() => setViewMode('local')}
+                                className={`px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${viewMode === 'local' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                                    }`}
+                            >
+                                Local
+                            </button>
+                            <button
+                                onClick={() => setViewMode('global')}
+                                className={`px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wider transition-all ${viewMode === 'global' ? 'bg-purple-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                                    }`}
+                            >
+                                Global
+                            </button>
+                        </div>
 
                         <div className="flex gap-2">
                             <select

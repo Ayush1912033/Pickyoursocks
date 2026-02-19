@@ -1,0 +1,35 @@
+[
+  {
+    "id": "214fd1c6-5a97-4962-9a3c-40158691aa07",
+    "name": "sanju b",
+    "username": null,
+    "bio": null,
+    "region": null,
+    "locality": null,
+    "level": null,
+    "preferred_format": null,
+    "experience_years": null,
+    "available_days": null,
+    "time_slots": null,
+    "achievements": null,
+    "sports": null,
+    "elo": 1200,
+    "profile_photo": null,
+    "created_at": "2026-02-15T10:22:55.697204",
+    "updated_at": "2026-02-15T10:22:55.697204",
+    "rating": 1500,
+    "rd": 350,
+    "volatility": 0.06,
+    "games_played": 0,
+    "last_match_at": null,
+    "reliability_score": 100,
+    "calibration_games_remaining": 5,
+    "rating_deviation": 350,
+    "elo_ratings": {
+      "general": 800
+    },
+    "public_key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArTPR9TWkdBBJo+aRbgqRaVJvHvh/sLGe0uPHmv/RagGZ4TatZwyPGsZP87azVGuyPH2dxQHScPqpsHmwrAH+x8CuzInxxKooVj1Fyw/JQK4v8jJEDS3szyvC30VQ6PO9nOGKIaMFQKGKHLOuRszKfhCNd+EdvAp9Fl1cWJuDqmm2RrB7wJ0nbfr7Vej77KVKcNg91R8U0mWPD9IetAFBk7/BUeGeSQyNyeC6QduRbPEPe2A/xBRpsbu8KibENEoZhVmg9COnJ31PMka0szSHsl3SziTyPFbkcyBJt4+mBtOewc5TUGQa0DW0O5ZEp9+DNog2SiAz0vaSMKJCPOFJ1QIDAQAB",
+    "lat": null,
+    "lng": null
+  }
+]

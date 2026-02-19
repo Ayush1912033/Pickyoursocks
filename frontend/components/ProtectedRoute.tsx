@@ -30,6 +30,19 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     );
   }
 
+  const isOnboarding = location.pathname === '/onboarding';
+  const hasSports = user.sports && user.sports.length > 0;
+
+  // REMOVED: Force Onboarding Check
+  // User requested to only show onboarding once after signup, never block login.
+  // if (!hasSports && !isOnboarding) {
+  //   return <Navigate to="/onboarding" replace />;
+  // }
+
+  if (hasSports && isOnboarding) {
+    return <Navigate to="/feed" replace />;
+  }
+
   return <>{children}</>;
 };
 

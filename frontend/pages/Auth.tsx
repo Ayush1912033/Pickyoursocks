@@ -120,7 +120,7 @@ const Auth: React.FC = () => {
         },
         password
       );
-      navigate('/feed');
+      navigate('/onboarding');
     } catch (err: any) {
       setError(err.message || 'Signup failed');
     }

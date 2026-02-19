@@ -35,19 +35,19 @@ export const SPORTS: SportCategory[] = [
   {
     id: 'badminton',
     name: 'Badminton',
-    image: '/badminton.jpg', // Placeholder
+    image: '/badminton.jpg',
     description: 'Smash it on the court with local players.'
   },
   {
     id: 'squash',
     name: 'Squash',
-    image: '/squash.jpg', // Placeholder
+    image: '/squash.jpg',
     description: 'High-intensity rallies in your area.'
   },
   {
     id: 'table-tennis',
     name: 'Table Tennis',
-    image: '/table-tennis.jpg', // Placeholder
+    image: '/table_tennis_v2.jpg',
     description: 'Fast-paced ping pong action.'
   },
   {

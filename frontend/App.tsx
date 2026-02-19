@@ -20,6 +20,7 @@ import Profile from './pages/Profile';
 import Radar from './pages/Radar';
 import AllSports from './pages/AllSports';
 import Rankings from './pages/Rankings';
+import Onboarding from './pages/Onboarding';
 import ProtectedRoute from './components/ProtectedRoute';
 
 /* ======================
@@ -140,6 +141,15 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <Rankings />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
             </ProtectedRoute>
           }
         />

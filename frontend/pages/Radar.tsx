@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ConfirmationModal from '../components/ConfirmationModal';
 import { useAuth } from '../components/AuthContext';
 import Navbar from '../components/Navbar';
@@ -28,6 +29,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 const Radar: React.FC = () => {
     const { user, isLoading: authLoading, refreshProfile } = useAuth();
     const { showNotification } = useNotification();
+    const navigate = useNavigate();
 
     // Fallback sports if user has none
     const allSportIds = SPORTS.map(s => s.id);
@@ -270,7 +272,8 @@ const Radar: React.FC = () => {
                 .from('match_requests')
                 .update({
                     status: 'accepted',
-                    accepted_by: user.id
+                    accepted_by: user.id,
+                    opponent_id: user.id // FIX: Set opponent_id so RLS allows updates
                 })
                 .eq('id', requestId);
 
@@ -372,7 +375,7 @@ const Radar: React.FC = () => {
                 ? { challenger_lat: latitude, challenger_lng: longitude }
                 : { opponent_lat: latitude, opponent_lng: longitude };
 
-            const { data: updatedMatch, error: updateError } = await supabase
+            const { data: updatedMatches, error: updateError } = await supabase
                 .from('match_requests')
                 .update(updatePayload)
                 .eq('id', match.id)
@@ -381,10 +384,18 @@ const Radar: React.FC = () => {
                     challenger:profiles!match_requests_user_id_fkey (*),
                     opponent:profiles!match_requests_opponent_id_fkey (*),
                     acceptor:profiles!match_requests_accepted_by_fkey (*)
-                `)
-                .single();
+                `);
 
             if (updateError) throw updateError;
+
+            // Handle array response safely
+            const updatedMatch = updatedMatches?.[0];
+
+            if (!updatedMatch) {
+                // If update succeeded but returned no rows, it's likely an RLS issue due to stale data (opponent_id null)
+                // or the user is not authorized to update this specific match.
+                throw new Error("Match update returned no data. This match might be stale (created before the fix). Please CANCEL this match and create a NEW one.");
+            }
 
             // 4. Logic to verify proximity if both have checked in
             const lat1 = updatedMatch.challenger_lat;
@@ -413,11 +424,11 @@ const Radar: React.FC = () => {
             fetchAcceptedMatches();
         } catch (err: any) {
             console.error('Check-in error:', err);
-            let errorMessage = "Check-in failed.";
+            let errorMessage = err.message || "Check-in failed.";
 
             if (err.code === 1) { // PERMISSION_DENIED
                 // Explicitly explain why the popup isn't appearing
-                errorMessage = "PERMISSION DENIED. Browsers (Chrome/Safari) only allow 'Location Permission' over HTTPS. Local IPs (192.168.x.x) are blocked. Please use an HTTPS tunnel (like ngrok) for mobile testing.";
+                errorMessage = "PERMISSION DENIED. Browsers only allow 'Location Permission' over HTTPS. Local IPs (192.168.x.x) are blocked. Please use an HTTPS tunnel (like ngrok) to test on mobile.";
             } else if (err.code === 2) { // POSITION_UNAVAILABLE
                 errorMessage = "GPS signal lost. Please ensure your location services are enabled.";
             } else if (err.code === 3) { // TIMEOUT
