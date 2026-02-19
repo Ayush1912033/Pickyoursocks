@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Hero: React.FC = () => {
   return (
@@ -30,17 +31,13 @@ const Hero: React.FC = () => {
                 The first skill-rated platform for amateur sports. Find worthy rivals, book courts instantly, and build your verified athletic career.
               </p>
               <div className="flex flex-wrap gap-6 pointer-events-auto">
-                <a
-                  href="#waitlist"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
+                <Link
+                  to="/signup"
                   className="group relative px-8 py-4 bg-white text-black rounded-full font-black uppercase tracking-widest transition-all transform hover:scale-105 active:scale-95 overflow-hidden"
                 >
                   <span className="relative z-10 group-hover:text-blue-600 transition-colors">Join the Community</span>
                   <div className="absolute inset-0 bg-blue-50 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300" />
-                </a>
+                </Link>
 
               </div>
             </div>
