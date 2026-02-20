@@ -92,12 +92,12 @@ const Rankings: React.FC = () => {
                                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Next Milestone</span>
                                     </div>
 
-                                    <div className="flex flex-col items-center justify-center py-4">
+                                    <div className="flex flex-col items-center justify-center py-2 md:py-4">
                                         <div className="relative">
-                                            <span className="text-7xl md:text-9xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-gray-500 drop-shadow-lg">
+                                            <span className="text-6xl md:text-9xl font-black italic tracking-tighter text-[#4ade80] drop-shadow-lg">
                                                 +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100}
                                             </span>
-                                            <span className="absolute -top-4 -right-12 text-2xl font-black italic text-blue-500 rotate-12">pts</span>
+                                            <span className="absolute -top-2 -right-8 md:-top-4 md:-right-12 text-lg md:text-2xl font-black italic text-[#4ade80] rotate-12">pts</span>
                                         </div>
                                     </div>
 
