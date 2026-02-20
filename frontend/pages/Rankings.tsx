@@ -92,30 +92,48 @@ const Rankings: React.FC = () => {
                                         <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Next Milestone</span>
                                     </div>
 
-                                    <div className="flex flex-col items-center justify-center py-2 md:py-4">
-                                        <div className="relative">
-                                            <span className="text-6xl md:text-9xl font-black italic tracking-tighter text-[#4ade80] drop-shadow-lg">
+                                    <div className="flex flex-col items-center justify-center py-4 md:py-6">
+                                        <div className="relative group/counter cursor-default">
+                                            {/* Animated Counter */}
+                                            <span className="text-6xl md:text-9xl font-black italic tracking-tighter text-[#4ade80] drop-shadow-[0_0_25px_rgba(74,222,128,0.25)] transition-all duration-300 group-hover/counter:drop-shadow-[0_0_35px_rgba(74,222,128,0.4)]">
                                                 +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100}
                                             </span>
-                                            <span className="absolute -top-2 -right-8 md:-top-4 md:-right-12 text-lg md:text-2xl font-black italic text-[#4ade80] rotate-12">pts</span>
+                                            <span className="absolute -top-2 -right-8 md:-top-4 md:-right-12 text-lg md:text-2xl font-black italic text-[#4ade80] rotate-12 opacity-80 animate-pulse">pts</span>
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <p className="text-lg md:text-xl text-gray-400 font-medium">
-                                            to reach <span className="text-white font-bold border-b-2 border-blue-500">Next Tier</span>
-                                        </p>
-
-                                        {/* Simple Progress Bar Visual */}
-                                        <div className="max-w-xs mx-auto h-2 bg-zinc-800 rounded-full overflow-hidden">
-                                            <div
-                                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
-                                                style={{ width: `${user?.elo ? (user.elo % 100) : 0}%` }}
-                                            ></div>
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Trophy size={16} className="text-yellow-500 animate-bounce" />
+                                            <p className="text-lg md:text-xl text-zinc-400 font-medium">
+                                                to reach <span className="text-white font-bold border-b border-blue-500 pb-0.5 hover:text-blue-400 transition-colors cursor-pointer">Next Tier</span>
+                                            </p>
                                         </div>
-                                        <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                                            {user?.elo || 800} / {Math.ceil((user?.elo || 800) / 100) * 100} ELO
-                                        </p>
+
+                                        {/* Enhanced Progress Bar */}
+                                        <div className="relative max-w-[240px] md:max-w-sm mx-auto">
+                                            <div className="h-3 md:h-4 bg-zinc-800/80 rounded-full overflow-hidden border border-white/5 box-inner shadow-inner">
+                                                <div
+                                                    className="h-full bg-gradient-to-r from-green-500 via-[#4ade80] to-green-400 relative overflow-hidden transition-all duration-1000 ease-out"
+                                                    style={{
+                                                        width: `${user?.elo ? (user.elo % 100) : 0}%`,
+                                                        boxShadow: '0 0 20px rgba(74,222,128,0.3)'
+                                                    }}
+                                                >
+                                                    {/* Shimmer Effect */}
+                                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-full -translate-x-full animate-shimmer"></div>
+                                                </div>
+                                            </div>
+
+                                            {/* Percentage Label */}
+                                            <div className="flex justify-between items-center mt-2 px-1">
+                                                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{user?.elo || 800} ELO</span>
+                                                <span className="text-[10px] font-black text-[#4ade80] uppercase tracking-widest">
+                                                    {Math.round(user?.elo ? (user.elo % 100) : 0)}%
+                                                </span>
+                                                <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">{Math.ceil((user?.elo || 800) / 100) * 100} ELO</span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
