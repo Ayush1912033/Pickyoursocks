@@ -61,13 +61,13 @@ const Rankings: React.FC = () => {
             <Navbar />
 
             <main className="pt-24 pb-20 px-4 md:px-8 max-w-4xl mx-auto animate-enter">
-                <div className="mb-12 flex items-end justify-between border-b border-white/5 pb-8">
+                <div className="mb-8 md:mb-12 flex items-end justify-between border-b border-white/5 pb-4 md:pb-8">
                     <div>
-                        <h1 className="text-4xl md:text-8xl font-black italic uppercase tracking-tighter">
+                        <h1 className="text-2xl md:text-8xl font-black italic uppercase tracking-tighter">
                             {currentRegion}
                         </h1>
                     </div>
-                    <div className="text-4xl md:text-6xl font-black italic uppercase tracking-tighter text-white/10">
+                    <div className="text-2xl md:text-6xl font-black italic uppercase tracking-tighter text-white/10">
                         / Leaderboard
                     </div>
                 </div>
@@ -124,29 +124,29 @@ const Rankings: React.FC = () => {
                 )}
 
                 {/* 2. Leaderboard Table */}
-                <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] overflow-hidden">
-                    <div className="p-8 space-y-8">
-                        <div className="flex items-center justify-between">
-                            <div className="bg-zinc-900/50 p-1.5 rounded-2xl flex items-center w-full max-w-sm">
+                <div className="bg-[#0a0a0a] border border-white/5 rounded-[1.5rem] md:rounded-[2.5rem] overflow-hidden">
+                    <div className="p-4 md:p-8 space-y-6 md:space-y-8">
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+                            <div className="bg-zinc-900/50 p-1 rounded-2xl flex items-center w-full md:max-w-sm">
                                 <button
                                     onClick={() => setViewMode('local')}
-                                    className={`flex-1 py-3 px-6 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${viewMode === 'local' ? 'bg-blue-600 text-white shadow-xl' : 'text-gray-500 hover:text-gray-300'}`}
+                                    className={`flex-1 py-2 md:py-3 px-4 md:px-6 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all ${viewMode === 'local' ? 'bg-blue-600 text-white shadow-xl' : 'text-gray-500 hover:text-gray-300'}`}
                                 >
                                     Local
                                 </button>
                                 <button
                                     onClick={() => setViewMode('global')}
-                                    className={`flex-1 py-3 px-6 rounded-xl text-sm font-black uppercase tracking-widest transition-all ${viewMode === 'global' ? 'bg-blue-600 text-white shadow-xl' : 'text-gray-500 hover:text-gray-300'}`}
+                                    className={`flex-1 py-2 md:py-3 px-4 md:px-6 rounded-xl text-xs md:text-sm font-black uppercase tracking-widest transition-all ${viewMode === 'global' ? 'bg-blue-600 text-white shadow-xl' : 'text-gray-500 hover:text-gray-300'}`}
                                 >
                                     Global
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-4 w-full md:w-auto">
                                 <select
                                     value={selectedSport}
                                     onChange={(e) => setSelectedSport(e.target.value)}
-                                    className="bg-zinc-900/50 border border-white/10 rounded-2xl text-sm font-black uppercase tracking-[0.2em] text-white px-8 py-4 outline-none focus:border-blue-600 transition-all text-center"
+                                    className="w-full md:w-auto bg-zinc-900/50 border border-white/10 rounded-2xl text-xs md:text-sm font-black uppercase tracking-[0.2em] text-white px-4 md:px-8 py-3 md:py-4 outline-none focus:border-blue-600 transition-all text-center appearance-none"
                                 >
                                     <option value="All">All Sports</option>
                                     {SPORTS.map(s => (
@@ -178,14 +178,14 @@ const Rankings: React.FC = () => {
                             ))}
                         </div>
                     ) : users.length > 0 ? (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto pb-4">
                             <table className="w-full text-left">
-                                <thead className="bg-zinc-900/50 text-xs font-bold uppercase tracking-wider text-gray-500">
+                                <thead className="bg-zinc-900/50 text-[10px] md:text-xs font-bold uppercase tracking-wider text-gray-500">
                                     <tr>
-                                        <th className="px-6 py-4">Rank</th>
-                                        <th className="px-6 py-4">Athlete</th>
-                                        <th className="px-6 py-4">Tier</th>
-                                        <th className="px-6 py-4 text-right">Points</th>
+                                        <th className="px-3 py-3 md:px-6 md:py-4">Rank</th>
+                                        <th className="px-3 py-3 md:px-6 md:py-4">Athlete</th>
+                                        <th className="px-3 py-3 md:px-6 md:py-4 hidden sm:table-cell">Tier</th>
+                                        <th className="px-3 py-3 md:px-6 md:py-4 text-right">Points</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -193,34 +193,34 @@ const Rankings: React.FC = () => {
                                         <tr
                                             key={rankedUser.id}
                                             className={`transition-colors group ${rankedUser.id === user?.id
-                                                ? 'bg-blue-900/20 border-l-4 border-blue-500'
-                                                : 'hover:bg-white/5 border-l-4 border-transparent'
+                                                ? 'bg-blue-900/20 border-l-2 md:border-l-4 border-blue-500'
+                                                : 'hover:bg-white/5 border-l-2 md:border-l-4 border-transparent'
                                                 }`}
                                         >
-                                            <td className={`px-8 py-8 font-black italic text-3xl tracking-tighter ${rankedUser.id === user?.id ? 'text-blue-500' : 'text-white'
+                                            <td className={`px-4 py-4 md:px-8 md:py-8 font-black italic text-xl md:text-3xl tracking-tighter ${rankedUser.id === user?.id ? 'text-blue-500' : 'text-white'
                                                 }`}>
                                                 #{rankedUser.rank || index + 1}
                                             </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <img src={rankedUser.image || '/avatar-placeholder.png'} alt={rankedUser.name} className="w-10 h-10 rounded-full object-cover bg-zinc-800" />
+                                            <td className="px-3 py-3 md:px-6 md:py-4">
+                                                <div className="flex items-center gap-2 md:gap-3">
+                                                    <img src={rankedUser.image || '/avatar-placeholder.png'} alt={rankedUser.name} className="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover bg-zinc-800" />
                                                     <div>
-                                                        <div className={`font-bold ${rankedUser.id === user?.id ? 'text-white' : 'text-white group-hover:text-blue-500 transition-colors'
+                                                        <div className={`font-bold text-sm md:text-base ${rankedUser.id === user?.id ? 'text-white' : 'text-white group-hover:text-blue-500 transition-colors'
                                                             }`}>
                                                             {rankedUser.id === user?.id ? 'You' : rankedUser.name}
                                                         </div>
-                                                        <div className={`text-xs font-bold uppercase tracking-wider ${rankedUser.id === user?.id ? 'text-blue-400' : 'text-gray-500'
+                                                        <div className={`text-[10px] md:text-xs font-bold uppercase tracking-wider ${rankedUser.id === user?.id ? 'text-blue-400' : 'text-gray-500'
                                                             }`}>
                                                             {rankedUser.sport}
                                                         </div>
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className={`px-6 py-4 text-sm font-medium ${rankedUser.id === user?.id ? 'text-gray-300' : 'text-gray-400'
+                                            <td className={`hidden sm:table-cell px-3 py-3 md:px-6 md:py-4 text-xs md:text-sm font-medium ${rankedUser.id === user?.id ? 'text-gray-300' : 'text-gray-400'
                                                 }`}>
                                                 {rankedUser.tier || (index === 0 ? 'Elite' : index < 5 ? 'Advanced' : 'Intermediate')}
                                             </td>
-                                            <td className="px-8 py-8 text-right font-black italic text-white text-4xl tracking-tighter">
+                                            <td className="px-4 py-4 md:px-8 md:py-8 text-right font-black italic text-white text-2xl md:text-4xl tracking-tighter">
                                                 {rankedUser.rating || rankedUser.points || 0}
                                             </td>
                                         </tr>
