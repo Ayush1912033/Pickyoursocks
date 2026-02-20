@@ -74,21 +74,50 @@ const Rankings: React.FC = () => {
 
                 {/* 1. Hero Stat Card */}
                 {(currentUserRanked || (user && users.length > 0)) && (
-                    <div className="relative overflow-hidden rounded-[3rem] bg-zinc-900 border border-white/5 p-8 md:p-12 mb-12 shadow-2xl">
-                        <div className="relative grid grid-cols-1 gap-8">
-                            <div className="space-y-4 text-center">
-                                <div className="text-xs font-bold uppercase tracking-[0.3em] text-gray-500">Next Milestone</div>
-                                <div className="flex flex-col items-center justify-center">
-                                    <div className="flex items-center gap-3 text-[#4ade80]">
-                                        <TrendingUp size={48} />
-                                        <span className="text-8xl font-black italic tracking-tighter">
-                                            +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100} pts
-                                        </span>
+                    <div className="relative overflow-hidden rounded-[3rem] p-1 mb-12 shadow-2xl group">
+                        {/* Gradient Border Background */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-purple-600 to-indigo-600 opacity-50 blur-xl group-hover:opacity-75 transition-opacity duration-700"></div>
+                        <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-indigo-500 to-purple-600 opacity-20 group-hover:opacity-40 transition-opacity duration-700"></div>
+
+                        {/* Content Container */}
+                        <div className="relative bg-zinc-950/90 backdrop-blur-xl rounded-[2.8rem] p-8 md:p-12 border border-white/10 h-full overflow-hidden">
+                            {/* Decorative Background Elements */}
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+                            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500/10 rounded-full blur-[100px] pointer-events-none"></div>
+
+                            <div className="relative grid grid-cols-1 gap-8 z-10">
+                                <div className="space-y-6 text-center">
+                                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 mx-auto backdrop-blur-md">
+                                        <TrendingUp size={12} className="text-blue-400" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-300">Next Milestone</span>
+                                    </div>
+
+                                    <div className="flex flex-col items-center justify-center py-4">
+                                        <div className="relative">
+                                            <span className="text-7xl md:text-9xl font-black italic tracking-tighter text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-gray-500 drop-shadow-lg">
+                                                +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100}
+                                            </span>
+                                            <span className="absolute -top-4 -right-12 text-2xl font-black italic text-blue-500 rotate-12">pts</span>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        <p className="text-lg md:text-xl text-gray-400 font-medium">
+                                            to reach <span className="text-white font-bold border-b-2 border-blue-500">Next Tier</span>
+                                        </p>
+
+                                        {/* Simple Progress Bar Visual */}
+                                        <div className="max-w-xs mx-auto h-2 bg-zinc-800 rounded-full overflow-hidden">
+                                            <div
+                                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500"
+                                                style={{ width: `${user?.elo ? (user.elo % 100) : 0}%` }}
+                                            ></div>
+                                        </div>
+                                        <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                            {user?.elo || 800} / {Math.ceil((user?.elo || 800) / 100) * 100} ELO
+                                        </p>
                                     </div>
                                 </div>
-                                <p className="text-xl text-gray-400 font-medium">
-                                    to reach <span className="text-white font-bold">Next Tier</span> <ArrowRight size={20} className="inline ml-2" />
-                                </p>
                             </div>
                         </div>
                     </div>

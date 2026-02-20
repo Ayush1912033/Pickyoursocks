@@ -244,10 +244,10 @@ const Navbar: React.FC = () => {
         {user ? (
           <div className="flex items-center gap-3">
             <button
-              onClick={logout}
+              onClick={() => setIsSearchOpen(!isSearchOpen)}
               className="text-gray-400 hover:text-white transition-colors"
             >
-              <LogOut size={18} />
+              <Search size={22} />
             </button>
             <Link
               to="/profile"
@@ -331,6 +331,76 @@ const Navbar: React.FC = () => {
                 <span className="w-1 h-1 rounded-full bg-blue-500"></span>
               )}
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* ======================
+          Mobile Search Overlay
+      ====================== */}
+      {isSearchOpen && (
+        <div className="lg:hidden fixed inset-0 z-[60] bg-black/95 backdrop-blur-xl flex flex-col pt-4 px-4 transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+          <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3 w-full">
+              <Search className="text-gray-500" size={20} />
+              <input
+                autoFocus
+                placeholder="Search for friends..."
+                className="bg-transparent text-white text-lg font-bold placeholder-gray-600 outline-none w-full"
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+              />
+            </div>
+            <button
+              onClick={() => {
+                setIsSearchOpen(false);
+                setSearchQuery('');
+                setSearchResults([]);
+              }}
+              className="p-2 bg-zinc-900 rounded-full text-white hover:bg-zinc-800 transition-colors"
+            >
+              <ChevronDown size={20} className="text-gray-400" />
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
+            {searchResults.length > 0 ? (
+              <div className="space-y-2 pb-20">
+                {searchResults.map((result: any) => (
+                  <div
+                    key={result.id}
+                    onClick={() => {
+                      navigate(`/profile/${result.id}`);
+                      setIsSearchOpen(false);
+                      setSearchResults([]);
+                      setSearchQuery('');
+                    }}
+                    className="flex items-center gap-4 p-4 bg-zinc-900/50 rounded-2xl active:scale-95 transition-transform border border-white/5"
+                  >
+                    <img
+                      src={result.profile_photo || '/avatar-placeholder.png'}
+                      className="w-12 h-12 rounded-full object-cover bg-zinc-800 border border-white/10"
+                    />
+                    <div>
+                      <p className="text-base font-bold text-white">{result.name}</p>
+                      <p className="text-xs text-gray-500 font-medium tracking-wider uppercase">@{result.username}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : searchQuery.length > 1 ? (
+              <div className="text-center py-20 opacity-50">
+                <Search size={48} className="mx-auto mb-4 text-zinc-800" />
+                <p className="text-gray-500 font-bold uppercase tracking-widest">No users found</p>
+              </div>
+            ) : (
+              <div className="text-center py-20 opacity-50">
+                <div className="w-16 h-16 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 border border-white/5">
+                  <Search className="text-gray-600" size={24} />
+                </div>
+                <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">Type to search</p>
+              </div>
+            )}
           </div>
         </div>
       )}
