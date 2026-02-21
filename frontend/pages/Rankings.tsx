@@ -93,9 +93,9 @@ const Rankings: React.FC = () => {
                                     </div>
 
                                     <div className="flex flex-col items-center justify-center py-4 md:py-6">
-                                        <div className="relative inline-block group/counter cursor-default px-2">
+                                        <div className="relative inline-block group/counter cursor-default px-4 overflow-visible">
                                             {/* Animated Counter */}
-                                            <span className="text-6xl md:text-9xl font-black italic tracking-wide text-[#4ade80] drop-shadow-[0_0_25px_rgba(74,222,128,0.25)] transition-all duration-300 group-hover/counter:drop-shadow-[0_0_35px_rgba(74,222,128,0.4)]">
+                                            <span className="block text-4xl sm:text-5xl md:text-9xl font-black italic tracking-wide text-[#4ade80] pr-10 pb-2 drop-shadow-[0_0_25px_rgba(74,222,128,0.25)] transition-all duration-300 group-hover/counter:drop-shadow-[0_0_35px_rgba(74,222,128,0.4)]">
                                                 +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100}
                                             </span>
                                             <span className="absolute -top-2 -right-8 md:-top-4 md:-right-12 text-lg md:text-2xl font-black italic text-[#4ade80] rotate-12 opacity-80 animate-pulse">pts</span>
