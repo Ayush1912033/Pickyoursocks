@@ -98,7 +98,7 @@ const Rankings: React.FC = () => {
                                             <span className="block text-6xl md:text-9xl font-black italic tracking-wide text-[#4ade80] pr-6 pb-2 drop-shadow-[0_0_25px_rgba(74,222,128,0.25)] transition-all duration-300 group-hover/counter:drop-shadow-[0_0_35px_rgba(74,222,128,0.4)]">
                                                 +{user?.elo ? (Math.ceil(user.elo / 100) * 100) - user.elo : 100}
                                             </span>
-                                            <span className="absolute -top-2 -right-2 md:-top-4 md:-right-12 text-lg md:text-2xl font-black italic text-[#4ade80] rotate-12 opacity-80 animate-pulse">pts</span>
+                                            <span className="absolute -top-2 -right-2 md:-top-4 md:-right-4 text-lg md:text-2xl font-black italic text-[#4ade80] rotate-12 opacity-80 animate-pulse">pts</span>
                                         </div>
                                     </div>
 
