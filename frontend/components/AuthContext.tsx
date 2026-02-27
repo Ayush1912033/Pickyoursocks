@@ -156,14 +156,25 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           console.log('SESSION FOUND:', session.user.email);
 
           // ⚡ profile is optional — never block auth
-          const profile = await fetchProfileSafe(session.user.id);
+          try {
+            const profile = await fetchProfileSafe(session.user.id);
 
-          if (mounted) {
-            setUser({
-              id: session.user.id,
-              email: session.user.email!,
-              ...(profile || { elo: 1200 }),
-            });
+            if (mounted) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                ...(profile || { elo: 1200 }),
+              });
+            }
+          } catch (profileErr) {
+            console.error('Error fetching profile on init:', profileErr);
+            if (mounted) {
+              setUser({
+                id: session.user.id,
+                email: session.user.email!,
+                elo: 1200,
+              });
+            }
           }
         } else {
           if (mounted) {
@@ -194,33 +205,40 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
       if (session?.user) {
         const sbUser = session.user;
-        const profile = await fetchProfileSafe(sbUser.id);
+        try {
+          const profile = await fetchProfileSafe(sbUser.id);
 
-        if (mounted) {
-          setUser(prev => {
-            // 1. If we got a valid profile, use it
-            if (profile) {
+          if (mounted) {
+            setUser(prev => {
+              // 1. If we got a valid profile, use it
+              if (profile) {
+                return {
+                  id: sbUser.id,
+                  email: sbUser.email!,
+                  ...profile,
+                };
+              }
+
+              // 2. If fetch failed (null) but we already have this user loaded with sports, KEEP IT!
+              // This prevents "flickering" to onboarding on transient network errors during tab switches
+              if (prev && prev.id === sbUser.id && prev.sports && prev.sports.length > 0) {
+                console.warn('Profile fetch failed, preserving existing user state to prevent redirect loop.');
+                return prev;
+              }
+
+              // 3. If no previous state and fetch failed, we have to fallback to default (which might trigger onboarding, but correctly so)
               return {
                 id: sbUser.id,
                 email: sbUser.email!,
-                ...profile,
+                elo: 1200, // Default
               };
-            }
-
-            // 2. If fetch failed (null) but we already have this user loaded with sports, KEEP IT!
-            // This prevents "flickering" to onboarding on transient network errors during tab switches
-            if (prev && prev.id === sbUser.id && prev.sports && prev.sports.length > 0) {
-              console.warn('Profile fetch failed, preserving existing user state to prevent redirect loop.');
-              return prev;
-            }
-
-            // 3. If no previous state and fetch failed, we have to fallback to default (which might trigger onboarding, but correctly so)
-            return {
-              id: sbUser.id,
-              email: sbUser.email!,
-              elo: 1200, // Default
-            };
-          });
+            });
+          }
+        } catch (profileErr) {
+          console.error('Error fetching profile on auth change:', profileErr);
+          if (mounted) {
+            setUser(prev => prev || { id: sbUser.id, email: sbUser.email!, elo: 1200 });
+          }
         }
       } else {
         if (mounted) setUser(null);
