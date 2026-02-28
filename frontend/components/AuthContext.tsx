@@ -123,6 +123,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         return null;
       }
 
+      // If query succeeded but no data found, user genuinely has no profile
+      if (!data) return 'NEW_USER';
+
       if (data) {
         // Update cache
         localStorage.setItem(`pys_profile_${userId}`, JSON.stringify(data));
@@ -157,14 +160,50 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
           // ⚡ profile is optional — never block auth
           try {
-            const profile = await fetchProfileSafe(session.user.id);
+            let profileResult: any = await fetchProfileSafe(session.user.id);
+
+            // Auto-create profile for Google OAuth users on init
+            if (profileResult === 'NEW_USER') {
+              console.log('New user detected via OAuth on init, creating default profile...');
+              const newProfile = {
+                id: session.user.id,
+                name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Player',
+                username: session.user.user_metadata?.user_name || session.user.email?.split('@')[0] || `user_${session.user.id.substring(0, 6)}`,
+                profile_photo: session.user.user_metadata?.avatar_url || '',
+                sports: [],
+                elo: 1200,
+                rating: 1200,
+                rd: 350,
+                volatility: 0.06,
+                reliability_score: 100,
+                calibration_games_remaining: 5,
+                rating_deviation: 350,
+                elo_ratings: { badminton: 1200 }
+              };
+
+              const { error: upsertErr } = await supabase.from('profiles').upsert(newProfile);
+              if (upsertErr) {
+                console.error('Failed to auto-create profile on init:', upsertErr);
+                profileResult = null; // Fallback
+              } else {
+                profileResult = newProfile;
+              }
+            }
 
             if (mounted) {
-              setUser({
-                id: session.user.id,
-                email: session.user.email!,
-                ...(profile || { elo: 1200 }),
-              });
+              if (profileResult && profileResult !== 'NEW_USER') {
+                setUser({
+                  id: session.user.id,
+                  email: session.user.email!,
+                  ...profileResult,
+                });
+              } else {
+                setUser({
+                  id: session.user.id,
+                  email: session.user.email!,
+                  elo: 1200,
+                });
+              }
             }
           } catch (profileErr) {
             console.error('Error fetching profile on init:', profileErr);
@@ -206,21 +245,48 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       if (session?.user) {
         const sbUser = session.user;
         try {
-          const profile = await fetchProfileSafe(sbUser.id);
+          let profileResult: any = await fetchProfileSafe(sbUser.id);
+
+          // Auto-create profile for Google OAuth users
+          if (profileResult === 'NEW_USER') {
+            console.log('New user detected via OAuth, creating default profile...');
+            const newProfile = {
+              id: sbUser.id,
+              name: sbUser.user_metadata?.name || sbUser.email?.split('@')[0] || 'Player',
+              username: sbUser.user_metadata?.user_name || sbUser.email?.split('@')[0] || `user_${sbUser.id.substring(0, 6)}`,
+              profile_photo: sbUser.user_metadata?.avatar_url || '',
+              sports: [],
+              elo: 1200,
+              rating: 1200,
+              rd: 350,
+              volatility: 0.06,
+              reliability_score: 100,
+              calibration_games_remaining: 5,
+              rating_deviation: 350,
+              elo_ratings: { badminton: 1200 }
+            };
+
+            const { error: upsertErr } = await supabase.from('profiles').upsert(newProfile);
+            if (upsertErr) {
+              console.error('Failed to auto-create profile:', upsertErr);
+              profileResult = null; // Fallback to safe state
+            } else {
+              profileResult = newProfile;
+            }
+          }
 
           if (mounted) {
             setUser(prev => {
               // 1. If we got a valid profile, use it
-              if (profile) {
+              if (profileResult && profileResult !== 'NEW_USER') {
                 return {
                   id: sbUser.id,
                   email: sbUser.email!,
-                  ...profile,
+                  ...profileResult,
                 };
               }
 
               // 2. If fetch failed (null) but we already have this user loaded with sports, KEEP IT!
-              // This prevents "flickering" to onboarding on transient network errors during tab switches
               if (prev && prev.id === sbUser.id && prev.sports && prev.sports.length > 0) {
                 console.warn('Profile fetch failed, preserving existing user state to prevent redirect loop.');
                 return prev;
